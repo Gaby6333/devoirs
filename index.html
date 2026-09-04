@@ -313,6 +313,37 @@
     font-weight: 600;
   }
 
+  .new-course-row {
+    display: none;
+    gap: 6px;
+    margin-top: 6px;
+  }
+
+  .new-course-row.show { display: flex; }
+
+  .new-course-row input {
+    flex: 1;
+    font: inherit;
+    font-size: 13px;
+    padding: 7px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--ink);
+  }
+
+  .new-course-row button {
+    border: none;
+    background: var(--accent);
+    color: var(--accent-ink);
+    font: inherit;
+    font-weight: 600;
+    font-size: 12.5px;
+    padding: 0 12px;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+
   .panel-actions {
     display: flex;
     justify-content: flex-end;
@@ -616,8 +647,11 @@
     <div class="field-row">
       <div class="field">
         <label for="f-subject">Matière</label>
-        <input id="f-subject" type="text" list="subject-list" placeholder="Ex. Littérature" />
-        <datalist id="subject-list"></datalist>
+        <select id="f-subject"></select>
+        <div class="new-course-row" id="new-course-row">
+          <input type="text" id="new-course-input" placeholder="Nom du nouveau cours" maxlength="40" />
+          <button type="button" id="add-course-btn">Ajouter</button>
+        </div>
       </div>
       <div class="field">
         <label for="f-date">Date de remise</label>
@@ -670,8 +704,10 @@ var firebaseConfig = {
 };
 firebase.initializeApp(firebaseConfig);
 var col = firebase.firestore().collection('devoirs');
+var coursesCol = firebase.firestore().collection('cours');
 
 var items = [];
+var courses = [];
 var myName = localStorage.getItem('devoirs-name') || '';
 var filter = 'tous';
 var editingId = null;
@@ -711,6 +747,11 @@ col.onSnapshot(function (snap) {
   render();
 }, function (err) {
   showBanner("Connexion à la base de données perdue — recharge la page.");
+});
+
+coursesCol.onSnapshot(function (snap) {
+  courses = snap.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); });
+  if (document.getElementById('panel').classList.contains('open')) renderSubjectSelect();
 });
 
 function addDevoir(data) {
@@ -808,21 +849,44 @@ function renderAssignRow() {
     btn.onclick = function () {
       wrap.setAttribute('data-value', name);
       renderAssignRow();
+      renderSubjectSelect();
     };
     wrap.appendChild(btn);
   });
 }
 
-function subjectList() {
+function subjectOptionsFor(owner) {
   var set = {};
-  items.forEach(function (it) { if (it.subject) set[it.subject] = true; });
-  var dl = document.getElementById('subject-list');
-  dl.innerHTML = '';
-  Object.keys(set).forEach(function (s) {
-    var opt = document.createElement('option');
-    opt.value = s;
-    dl.appendChild(opt);
+  courses.forEach(function (c) {
+    if (c.owner === owner || c.owner === 'Nous deux') set[c.name] = true;
   });
+  items.forEach(function (it) {
+    if (it.subject && (it.assignedTo === owner || it.assignedTo === 'Nous deux')) set[it.subject] = true;
+  });
+  return Object.keys(set).sort();
+}
+
+function renderSubjectSelect() {
+  var owner = document.getElementById('assign-row').getAttribute('data-value') || myName;
+  var sel = document.getElementById('f-subject');
+  var current = sel.getAttribute('data-current') || '';
+  var options = subjectOptionsFor(owner);
+  sel.innerHTML = '';
+  var placeholder = document.createElement('option');
+  placeholder.value = '';
+  placeholder.textContent = options.length ? 'Choisir un cours' : 'Aucun cours encore';
+  sel.appendChild(placeholder);
+  options.forEach(function (name) {
+    var opt = document.createElement('option');
+    opt.value = name;
+    opt.textContent = name;
+    if (name === current) opt.selected = true;
+    sel.appendChild(opt);
+  });
+  var addOpt = document.createElement('option');
+  addOpt.value = '__new__';
+  addOpt.textContent = '+ Nouveau cours...';
+  sel.appendChild(addOpt);
 }
 
 function makeCard(it) {
@@ -924,7 +988,6 @@ function render() {
   renderWhoAmI();
   renderStats();
   renderChips();
-  subjectList();
 
   var filtered = items.filter(function (it) {
     return filter === 'tous' || it.assignedTo === filter;
@@ -964,11 +1027,14 @@ function openPanel(it) {
   editingId = it ? it.id : null;
   document.getElementById('panel-title').textContent = it ? 'Modifier le devoir' : 'Nouveau devoir';
   document.getElementById('f-title').value = it ? it.title : '';
-  document.getElementById('f-subject').value = it ? it.subject : '';
   document.getElementById('f-date').value = it ? it.dueDate : '';
   document.getElementById('f-desc').value = it ? it.description || '' : '';
   document.getElementById('assign-row').setAttribute('data-value', it ? it.assignedTo : myName);
+  document.getElementById('f-subject').setAttribute('data-current', it ? it.subject || '' : '');
+  document.getElementById('new-course-row').classList.remove('show');
+  document.getElementById('new-course-input').value = '';
   renderAssignRow();
+  renderSubjectSelect();
   document.getElementById('panel').classList.add('open');
   document.getElementById('f-title').focus();
 }
@@ -987,7 +1053,7 @@ function savePanel() {
   }
   var data = {
     title: title,
-    subject: document.getElementById('f-subject').value.trim(),
+    subject: document.getElementById('f-subject').value,
     dueDate: dueDate,
     description: document.getElementById('f-desc').value.trim(),
     assignedTo: document.getElementById('assign-row').getAttribute('data-value') || myName
@@ -1004,6 +1070,35 @@ function savePanel() {
 document.getElementById('open-add').onclick = function () { openPanel(null); };
 document.getElementById('cancel-panel').onclick = closePanel;
 document.getElementById('save-panel').onclick = savePanel;
+
+document.getElementById('f-subject').onchange = function () {
+  if (this.value === '__new__') {
+    this.value = this.getAttribute('data-current') || '';
+    document.getElementById('new-course-row').classList.add('show');
+    document.getElementById('new-course-input').focus();
+  } else {
+    this.setAttribute('data-current', this.value);
+  }
+};
+
+document.getElementById('add-course-btn').onclick = function () {
+  var name = document.getElementById('new-course-input').value.trim();
+  if (!name) return;
+  var owner = document.getElementById('assign-row').getAttribute('data-value') || myName;
+  coursesCol.add({ name: name, owner: owner }).then(function (ref) {
+    courses.push({ id: ref.id, name: name, owner: owner });
+    document.getElementById('f-subject').setAttribute('data-current', name);
+    document.getElementById('new-course-input').value = '';
+    document.getElementById('new-course-row').classList.remove('show');
+    renderSubjectSelect();
+  }).catch(function () {
+    showBanner("Échec de l'ajout du cours — vérifie ta connexion et réessaie.");
+  });
+};
+
+document.getElementById('new-course-input').addEventListener('keydown', function (e) {
+  if (e.key === 'Enter') { e.preventDefault(); document.getElementById('add-course-btn').click(); }
+});
 document.getElementById('done-toggle').onclick = function () { showDone = !showDone; render(); };
 document.getElementById('switch-name').onclick = function () {
   document.getElementById('name-input').value = myName;
