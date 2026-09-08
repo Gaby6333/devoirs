@@ -53,6 +53,7 @@ var state = {
   editingId: null,
   newCourse: false,
   editingCourse: null,
+  remindersOn: remindersEnabled(),
   banner: ''
 };
 
@@ -402,6 +403,60 @@ function applyTheme(theme) {
   else document.documentElement.removeAttribute('data-theme');
 }
 applyTheme(state.theme);
+
+/* ── rappels ────────────────────────────────────────────── */
+
+function remindersEnabled() {
+  return localStorage.getItem('devoirs-reminders') === '1' && ('Notification' in window) && Notification.permission === 'granted';
+}
+
+function toggleReminders() {
+  if (state.remindersOn) {
+    state.remindersOn = false;
+    localStorage.setItem('devoirs-reminders', '0');
+    render();
+    return;
+  }
+  if (!('Notification' in window)) { showBanner('Ton navigateur ne supporte pas les notifications.'); return; }
+  Notification.requestPermission().then(function (perm) {
+    if (perm === 'granted') {
+      state.remindersOn = true;
+      localStorage.setItem('devoirs-reminders', '1');
+      render();
+      checkReminders();
+    } else {
+      showBanner('Permission refusée — active les notifications dans les réglages du téléphone.');
+    }
+  });
+}
+
+function todayKey() { return iso(today()); }
+
+function notifiedMap() {
+  try { return JSON.parse(localStorage.getItem('devoirs-notified') || '{}'); } catch (e) { return {}; }
+}
+
+function checkReminders() {
+  if (!state.remindersOn || !navigator.serviceWorker) return;
+  var seen = notifiedMap();
+  var due = state.items.filter(function (it) {
+    if (it.status === 'fini') return false;
+    if (it.assignedTo !== state.myName && it.assignedTo !== 'Nous deux') return false;
+    var diff = dueInfo(it.dueDate).diff;
+    return diff === 0 || diff === 1 || diff === 7;
+  });
+  due.forEach(function (it) {
+    if (seen[it.id] === todayKey()) return;
+    seen[it.id] = todayKey();
+    var diff = dueInfo(it.dueDate).diff;
+    var when = diff === 0 ? "aujourd'hui" : diff === 1 ? 'demain' : 'dans une semaine';
+    var body = it.title + (it.subject ? ' · ' + it.subject : '') + ' — à remettre ' + when;
+    navigator.serviceWorker.ready.then(function (reg) {
+      reg.showNotification('Devoir à venir', { body: body, icon: 'icon-192.png', badge: 'favicon-32.png', tag: it.id });
+    });
+  });
+  localStorage.setItem('devoirs-notified', JSON.stringify(seen));
+}
 
 /* ── barres d'écran ─────────────────────────────────────── */
 
@@ -1035,6 +1090,15 @@ function renderSettings() {
     ])
   ]));
 
+  body.appendChild(h('label', { class: 'section' }, 'Rappels'));
+  body.appendChild(h('div', { class: 'rows' }, [
+    h('div', { class: 'row tap', onclick: toggleReminders }, [
+      h('dt', {}, 'Rappels de devoirs'),
+      h('dd', {}, h('span', { class: 'switch' + (state.remindersOn ? ' on' : '') }, h('span', { class: 'knob' })))
+    ])
+  ]));
+  body.appendChild(h('p', { class: 'hist' }, 'À l\'ouverture de l\'app, un rappel s\'affiche pour un devoir qui arrive dans une semaine, demain ou aujourd\'hui.'));
+
   body.appendChild(h('p', { class: 'hist' }, 'Devoirs à deux · les données sont partagées en direct entre vos deux téléphones.'));
 
   scr.appendChild(body);
@@ -1131,6 +1195,10 @@ Array.prototype.forEach.call(document.querySelectorAll('.name-pick'), function (
 });
 document.getElementById('toast-undo').onclick = hideToast;
 
+document.addEventListener('visibilitychange', function () {
+  if (document.visibilityState === 'visible') checkReminders();
+});
+
 readUrl();
 render();
 
@@ -1144,6 +1212,7 @@ col.onSnapshot(function (snap) {
   state.items = next;
   state.loaded = true;
   render();
+  checkReminders();
 }, function () {
   state.loaded = true;
   showBanner('Connexion perdue — les changements se synchroniseront au retour du réseau.');

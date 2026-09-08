@@ -1,4 +1,4 @@
-var CACHE_NAME = 'devoirs-v3';
+var CACHE_NAME = 'devoirs-v4';
 var FILES = [
   '.',
   'index.html',
@@ -41,6 +41,18 @@ self.addEventListener('fetch', function (e) {
         return response;
       }).catch(function () { return cached; });
       return cached || fetchPromise;
+    })
+  );
+});
+
+self.addEventListener('notificationclick', function (e) {
+  e.notification.close();
+  e.waitUntil(
+    clients.matchAll({ type: 'window' }).then(function (list) {
+      for (var i = 0; i < list.length; i++) {
+        if ('focus' in list[i]) return list[i].focus();
+      }
+      if (clients.openWindow) return clients.openWindow('.');
     })
   );
 });
