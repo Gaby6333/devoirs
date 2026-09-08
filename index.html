@@ -2,15 +2,17 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Devoirs à deux</title>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="favicon-32.png" sizes="32x32">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="theme-color" content="#2b4c7e">
+<meta name="theme-color" content="#161826">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Devoirs">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;1,9..144,500&family=Work+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -18,18 +20,17 @@
 <div class="wrap">
   <header class="top">
     <div class="brand">
-      <svg width="34" height="34" viewBox="0 0 34 34" fill="none">
-        <circle cx="13" cy="17" r="10" fill="var(--accent-soft)"/>
-        <circle cx="21" cy="17" r="10" fill="var(--surface-2)"/>
-        <path d="M9 17l3 3 6-7" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+      <svg width="26" height="26" viewBox="0 0 26 26" fill="none" aria-hidden="true">
+        <rect x="1" y="1" width="24" height="24" rx="8" stroke="var(--accent)" stroke-width="1"/>
+        <path d="M8 13.2l3.2 3.2L18 9" stroke="var(--accent)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
       </svg>
       <div>
-        <h1>Devoirs à deux</h1>
+        <h1>Devoirs</h1>
         <p>Qui doit faire quoi, et pour quand</p>
       </div>
     </div>
     <div class="whoami">
-      <button id="theme-toggle" class="theme-btn" title="Thème">🌓</button>
+      <button id="theme-toggle" class="theme-btn" title="Thème"><i class="ph ph-circle-half"></i></button>
       <span class="avatar" id="my-avatar">?</span>
       <span id="my-name">—</span>
       <button id="switch-name">changer</button>
@@ -39,7 +40,7 @@
   <div class="banner" id="banner"></div>
 
   <div class="stats">
-    <div class="stat"><div class="num" id="stat-todo">0</div><div class="lbl">à faire / en cours</div></div>
+    <div class="stat"><div class="num" id="stat-todo">0</div><div class="lbl">à faire</div></div>
     <div class="stat overdue"><div class="num" id="stat-late">0</div><div class="lbl">en retard</div></div>
     <div class="stat done"><div class="num" id="stat-done">0</div><div class="lbl">terminés</div></div>
   </div>
@@ -64,10 +65,10 @@
       <div class="field full">
         <label>Type</label>
         <div class="type-row" id="type-row">
-          <button type="button" class="type-pick" data-type="devoir">📝 Devoir</button>
-          <button type="button" class="type-pick" data-type="examen">🎯 Examen</button>
-          <button type="button" class="type-pick" data-type="lecture">📖 Lecture</button>
-          <button type="button" class="type-pick" data-type="projet">👥 Projet d'équipe</button>
+          <button type="button" class="type-pick" data-type="devoir"><i class="ph ph-note-pencil"></i>Devoir</button>
+          <button type="button" class="type-pick" data-type="examen"><i class="ph ph-target"></i>Examen</button>
+          <button type="button" class="type-pick" data-type="lecture"><i class="ph ph-book-open"></i>Lecture</button>
+          <button type="button" class="type-pick" data-type="projet"><i class="ph ph-users-three"></i>Projet d'équipe</button>
         </div>
       </div>
     </div>
@@ -133,7 +134,7 @@
   </div>
 </div>
 
-<button class="fab" id="open-add" title="Nouveau devoir" aria-label="Nouveau devoir">+</button>
+<button class="fab" id="open-add" title="Nouveau devoir" aria-label="Nouveau devoir"><i class="ph ph-plus"></i>Ajouter</button>
 
 <div class="toast" id="toast">
   <span id="toast-text"></span>
@@ -142,8 +143,8 @@
 
 <div class="overlay" id="name-overlay">
   <div class="overlay-card">
-    <h2>C'est qui, toi ?</h2>
-    <p>Pour savoir qui a quoi à faire</p>
+    <h2>C'est qui, toi&nbsp;?</h2>
+    <p>Pour savoir qui a quoi à faire. Tu pourras changer plus tard.</p>
     <div class="name-pick-row">
       <button type="button" class="name-pick" data-name="Léonie">Léonie</button>
       <button type="button" class="name-pick" data-name="Gabriel">Gabriel</button>

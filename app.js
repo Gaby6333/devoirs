@@ -33,10 +33,10 @@ var STATUS = {
 };
 
 var TYPES = {
-  devoir: { label: 'Devoir', icon: '📝' },
-  examen: { label: 'Examen', icon: '🎯' },
-  lecture: { label: 'Lecture', icon: '📖' },
-  projet: { label: "Projet d'équipe", icon: '👥' }
+  devoir: { label: 'Devoir', icon: 'ph-note-pencil' },
+  examen: { label: 'Examen', icon: 'ph-target' },
+  lecture: { label: 'Lecture', icon: 'ph-book-open' },
+  projet: { label: "Projet d'équipe", icon: 'ph-users-three' }
 };
 
 var AVATAR_COLORS = ['#2b4c7e', '#6e4b8a', '#2e7d74', '#a15c34', '#55606b', '#7a4356'];
@@ -57,11 +57,10 @@ function subjectColor(name) {
 }
 
 function celebrate(x, y) {
-  var emojis = ['🎉', '✨', '👏', '🎊'];
   for (var i = 0; i < 6; i++) {
     var el = document.createElement('span');
     el.className = 'confetti';
-    el.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+    el.style.setProperty('--dx', (Math.random() * 60 - 30).toFixed(0) + 'px');
     el.style.left = x + 'px';
     el.style.top = y + 'px';
     el.style.setProperty('--dx', (Math.random() * 120 - 60) + 'px');
@@ -412,7 +411,7 @@ function makeCard(it) {
   var type = TYPES[it.type] ? it.type : 'devoir';
   var typeTag = document.createElement('span');
   typeTag.className = 'type-tag ' + type;
-  typeTag.textContent = TYPES[type].icon + ' ' + TYPES[type].label;
+  typeTag.innerHTML = '<i class="ph ' + TYPES[type].icon + '"></i>' + TYPES[type].label;
   top.appendChild(typeTag);
 
   if (it.subject) {
@@ -635,10 +634,10 @@ function render() {
     var empty = document.createElement('div');
     empty.className = 'empty';
     if (query) {
-      empty.innerHTML = '<div class="big">🔍</div>' +
+      empty.innerHTML = '<div class="big"><i class="ph ph-magnifying-glass"></i></div>' +
         '<p><strong>Aucun résultat pour cette recherche.</strong></p>';
     } else {
-      empty.innerHTML = '<div class="big">📓</div>' +
+      empty.innerHTML = '<div class="big"><i class="ph ph-notebook"></i></div>' +
         '<p><strong>Aucun devoir ici pour l\'instant.</strong></p>' +
         '<p>Ajoutez le premier avec le bouton ci-dessous.</p>';
     }
@@ -815,14 +814,14 @@ document.getElementById('sort-select').onchange = function () {
   render();
 };
 
-var THEME_ICONS = { auto: '🌓', light: '☀️', dark: '🌙' };
+var THEME_ICONS = { auto: 'ph-circle-half', light: 'ph-sun', dark: 'ph-moon' };
 function applyTheme(theme) {
   if (theme === 'light' || theme === 'dark') {
     document.documentElement.setAttribute('data-theme', theme);
   } else {
     document.documentElement.removeAttribute('data-theme');
   }
-  document.getElementById('theme-toggle').textContent = THEME_ICONS[theme];
+  document.getElementById('theme-toggle').innerHTML = '<i class="ph ' + THEME_ICONS[theme] + '"></i>';
 }
 applyTheme(currentTheme);
 document.getElementById('theme-toggle').onclick = function () {
