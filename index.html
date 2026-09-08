@@ -9,6 +9,7 @@
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="theme-color" content="#161826">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Devoirs">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap">
 <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
@@ -17,132 +18,22 @@
 </head>
 <body>
 
-<div class="wrap">
-  <header class="top">
-    <div class="brand">
+<div id="app" class="app"></div>
+
+<div class="toast" id="toast" role="status">
+  <span id="toast-text"></span>
+  <button id="toast-undo" type="button">Annuler</button>
+</div>
+
+<div class="overlay hidden" id="name-overlay">
+  <div class="overlay-card">
+    <div class="overlay-mark">
       <svg width="26" height="26" viewBox="0 0 26 26" fill="none" aria-hidden="true">
         <rect x="1" y="1" width="24" height="24" rx="8" stroke="var(--accent)" stroke-width="1"/>
         <path d="M8 13.2l3.2 3.2L18 9" stroke="var(--accent)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
       </svg>
-      <div>
-        <h1>Devoirs</h1>
-        <p>Qui doit faire quoi, et pour quand</p>
-      </div>
+      <span>Devoirs à deux</span>
     </div>
-    <div class="whoami">
-      <button id="theme-toggle" class="theme-btn" title="Thème"><i class="ph ph-circle-half"></i></button>
-      <span class="avatar" id="my-avatar">?</span>
-      <span id="my-name">—</span>
-      <button id="switch-name">changer</button>
-    </div>
-  </header>
-
-  <div class="banner" id="banner"></div>
-
-  <div class="stats">
-    <div class="stat"><div class="num" id="stat-todo">0</div><div class="lbl">à faire</div></div>
-    <div class="stat overdue"><div class="num" id="stat-late">0</div><div class="lbl">en retard</div></div>
-    <div class="stat done"><div class="num" id="stat-done">0</div><div class="lbl">terminés</div></div>
-  </div>
-
-  <div class="week-summary" id="week-summary"></div>
-
-  <div class="toolbar">
-    <div class="chips" id="chips"></div>
-    <div class="search-sort">
-      <input type="search" id="search-input" placeholder="Rechercher..." />
-      <select id="sort-select">
-        <option value="date">Trier : Date</option>
-        <option value="matiere">Trier : Matière</option>
-        <option value="personne">Trier : Personne</option>
-      </select>
-    </div>
-  </div>
-
-  <div class="panel" id="panel">
-    <h2 id="panel-title">Nouveau devoir</h2>
-    <div class="field-row">
-      <div class="field full">
-        <label>Type</label>
-        <div class="type-row" id="type-row">
-          <button type="button" class="type-pick" data-type="devoir"><i class="ph ph-note-pencil"></i>Devoir</button>
-          <button type="button" class="type-pick" data-type="examen"><i class="ph ph-target"></i>Examen</button>
-          <button type="button" class="type-pick" data-type="lecture"><i class="ph ph-book-open"></i>Lecture</button>
-          <button type="button" class="type-pick" data-type="projet"><i class="ph ph-users-three"></i>Projet d'équipe</button>
-        </div>
-      </div>
-    </div>
-    <div class="field-row">
-      <div class="field full">
-        <label for="f-title">Titre</label>
-        <input id="f-title" type="text" placeholder="Ex. Dissertation chapitre 3" />
-      </div>
-    </div>
-    <div class="field-row">
-      <div class="field">
-        <label for="f-subject">Matière</label>
-        <select id="f-subject"></select>
-        <div class="new-course-row" id="new-course-row">
-          <input type="text" id="new-course-input" placeholder="Nom du nouveau cours" maxlength="40" />
-          <button type="button" id="add-course-btn">Ajouter</button>
-        </div>
-      </div>
-      <div class="field">
-        <label for="f-date">Date de remise</label>
-        <input id="f-date" type="date" />
-      </div>
-    </div>
-    <div class="field-row">
-      <div class="field full">
-        <label>Assigné à</label>
-        <div class="assign-row" id="assign-row"></div>
-      </div>
-    </div>
-    <div class="field-row">
-      <div class="field">
-        <label for="f-weight">Pondération (%)</label>
-        <input id="f-weight" type="number" min="0" max="100" placeholder="Optionnel" />
-      </div>
-      <div class="field">
-        <label for="f-duration">Durée estimée</label>
-        <select id="f-duration">
-          <option value="">Optionnel</option>
-          <option value="15 min">15 min</option>
-          <option value="30 min">30 min</option>
-          <option value="1h">1h</option>
-          <option value="1h30">1h30</option>
-          <option value="2h">2h</option>
-          <option value="3h+">3h+</option>
-        </select>
-      </div>
-    </div>
-    <div class="field-row">
-      <div class="field full">
-        <label for="f-desc">Description</label>
-        <textarea id="f-desc" placeholder="Détails, consignes, liens..."></textarea>
-      </div>
-    </div>
-    <div class="panel-actions">
-      <button class="btn-ghost" id="cancel-panel">Annuler</button>
-      <button class="btn-solid" id="save-panel">Enregistrer</button>
-    </div>
-  </div>
-
-  <div class="list" id="list"></div>
-  <div class="done-toggle" id="done-toggle-wrap" style="display:none">
-    <button id="done-toggle">Afficher les terminés</button>
-  </div>
-</div>
-
-<button class="fab" id="open-add" title="Nouveau devoir" aria-label="Nouveau devoir"><i class="ph ph-plus"></i>Ajouter</button>
-
-<div class="toast" id="toast">
-  <span id="toast-text"></span>
-  <button id="toast-undo">Annuler</button>
-</div>
-
-<div class="overlay" id="name-overlay">
-  <div class="overlay-card">
     <h2>C'est qui, toi&nbsp;?</h2>
     <p>Pour savoir qui a quoi à faire. Tu pourras changer plus tard.</p>
     <div class="name-pick-row">
