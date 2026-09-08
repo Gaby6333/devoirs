@@ -12,6 +12,7 @@ var firebaseConfig = {
 };
 firebase.initializeApp(firebaseConfig);
 firebase.firestore().enablePersistence({ synchronizeTabs: true }).catch(function () {});
+firebase.auth().signInAnonymously().catch(function () {});
 var col = firebase.firestore().collection('devoirs');
 var coursesCol = firebase.firestore().collection('cours');
 
@@ -930,6 +931,19 @@ function renderDetail() {
 
 function escapeIcs(s) { return String(s || '').replace(/([,;\\])/g, '\\$1').replace(/\n/g, '\\n'); }
 
+function exportData() {
+  var data = {
+    exportedAt: new Date().toISOString(),
+    devoirs: state.items,
+    cours: state.courses
+  };
+  var blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  var a = h('a', { href: URL.createObjectURL(blob), download: 'devoirs-' + iso(today()) + '.json' });
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
 function downloadIcs(it) {
   if (!it.dueDate) { showBanner('Ce devoir n\'a pas de date.'); return; }
   var type = TYPES[it.type] ? TYPES[it.type].label : 'Devoir';
@@ -1098,6 +1112,11 @@ function renderSettings() {
     ])
   ]));
   body.appendChild(h('p', { class: 'hist' }, 'À l\'ouverture de l\'app, un rappel s\'affiche pour un devoir qui arrive dans une semaine, demain ou aujourd\'hui.'));
+
+  body.appendChild(h('label', { class: 'section' }, 'Données'));
+  body.appendChild(h('button', {
+    class: 'btn-ghost export-btn', type: 'button', onclick: exportData
+  }, [icon('ph-download-simple'), 'Exporter mes données']));
 
   body.appendChild(h('p', { class: 'hist' }, 'Devoirs à deux · les données sont partagées en direct entre vos deux téléphones.'));
 
