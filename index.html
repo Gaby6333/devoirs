@@ -45,7 +45,6 @@
 
   <div class="toolbar">
     <div class="chips" id="chips"></div>
-    <button class="add-btn" id="open-add">+ Nouveau devoir</button>
   </div>
 
   <div class="panel" id="panel">
@@ -54,8 +53,10 @@
       <div class="field full">
         <label>Type</label>
         <div class="type-row" id="type-row">
-          <button type="button" class="type-pick" data-type="devoir">Devoir</button>
-          <button type="button" class="type-pick" data-type="examen">Examen</button>
+          <button type="button" class="type-pick" data-type="devoir">📝 Devoir</button>
+          <button type="button" class="type-pick" data-type="examen">🎯 Examen</button>
+          <button type="button" class="type-pick" data-type="lecture">📖 Lecture</button>
+          <button type="button" class="type-pick" data-type="projet">👥 Projet d'équipe</button>
         </div>
       </div>
     </div>
@@ -86,6 +87,24 @@
       </div>
     </div>
     <div class="field-row">
+      <div class="field">
+        <label for="f-weight">Pondération (%)</label>
+        <input id="f-weight" type="number" min="0" max="100" placeholder="Optionnel" />
+      </div>
+      <div class="field">
+        <label for="f-duration">Durée estimée</label>
+        <select id="f-duration">
+          <option value="">Optionnel</option>
+          <option value="15 min">15 min</option>
+          <option value="30 min">30 min</option>
+          <option value="1h">1h</option>
+          <option value="1h30">1h30</option>
+          <option value="2h">2h</option>
+          <option value="3h+">3h+</option>
+        </select>
+      </div>
+    </div>
+    <div class="field-row">
       <div class="field full">
         <label for="f-desc">Description</label>
         <textarea id="f-desc" placeholder="Détails, consignes, liens..."></textarea>
@@ -102,6 +121,8 @@
     <button id="done-toggle">Afficher les terminés</button>
   </div>
 </div>
+
+<button class="fab" id="open-add" title="Nouveau devoir" aria-label="Nouveau devoir">+</button>
 
 <div class="overlay" id="name-overlay">
   <div class="overlay-card">

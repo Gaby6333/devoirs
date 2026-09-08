@@ -23,14 +23,28 @@ var STATUS = {
   fini: { label: 'Fini' }
 };
 
+var TYPES = {
+  devoir: { label: 'Devoir', icon: '📝' },
+  examen: { label: 'Examen', icon: '🎯' },
+  lecture: { label: 'Lecture', icon: '📖' },
+  projet: { label: "Projet d'équipe", icon: '👥' }
+};
+
 var AVATAR_COLORS = ['#2b4c7e', '#6e4b8a', '#2e7d74', '#a15c34', '#55606b', '#7a4356'];
 var NAME_COLORS = { 'Léonie': '#3d7a56', 'Gabriel': '#6e4b8a' };
+var SUBJECT_COLORS = ['#2b4c7e', '#6e4b8a', '#2e7d74', '#a15c34', '#55606b', '#7a4356', '#1f6f8b', '#8a6d1f'];
 
 function avatarColor(name) {
   if (NAME_COLORS[name]) return NAME_COLORS[name];
   var hash = 0;
   for (var i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) >>> 0;
   return AVATAR_COLORS[hash % AVATAR_COLORS.length];
+}
+
+function subjectColor(name) {
+  var hash = 0;
+  for (var i = 0; i < name.length; i++) hash = (hash * 17 + name.charCodeAt(i)) >>> 0;
+  return SUBJECT_COLORS[hash % SUBJECT_COLORS.length];
 }
 
 function initials(name) {
@@ -88,9 +102,9 @@ function dueInfo(iso) {
   var diff = Math.round((d - today) / 86400000);
   var text, cls;
   if (diff < 0) { text = 'En retard ' + (-diff) + ' j'; cls = 'overdue'; }
-  else if (diff === 0) { text = "Aujourd'hui"; cls = 'soon'; }
-  else if (diff === 1) { text = 'Demain'; cls = 'soon'; }
-  else if (diff <= 6) { text = 'Dans ' + diff + ' j'; cls = 'soon'; }
+  else if (diff === 0) { text = "Aujourd'hui"; cls = 'overdue'; }
+  else if (diff === 1) { text = 'Demain'; cls = 'overdue'; }
+  else if (diff === 2) { text = 'Dans 2 j'; cls = 'soon'; }
   else { text = 'Dans ' + diff + ' j'; cls = ''; }
   var abs = d.toLocaleDateString('fr-CA', { weekday: 'short', day: 'numeric', month: 'short' });
   return { text: text, cls: cls, abs: abs, diff: diff };
@@ -206,22 +220,38 @@ function makeCard(it) {
 
   var top = document.createElement('div');
   top.className = 'card-top';
-  if (it.type === 'examen') {
-    var examTag = document.createElement('span');
-    examTag.className = 'exam-tag';
-    examTag.textContent = 'Examen';
-    top.appendChild(examTag);
-  }
+
+  var type = TYPES[it.type] ? it.type : 'devoir';
+  var typeTag = document.createElement('span');
+  typeTag.className = 'type-tag ' + type;
+  typeTag.textContent = TYPES[type].icon + ' ' + TYPES[type].label;
+  top.appendChild(typeTag);
+
   if (it.subject) {
+    var color = subjectColor(it.subject);
     var tag = document.createElement('span');
     tag.className = 'subject-tag';
     tag.textContent = it.subject;
+    tag.style.color = color;
+    tag.style.background = color + '22';
     top.appendChild(tag);
   }
   var badge = document.createElement('span');
   badge.className = 'due-badge' + (info.cls ? ' ' + info.cls : '');
   badge.textContent = it.status === 'fini' ? info.abs : info.text + ' · ' + info.abs;
   top.appendChild(badge);
+  if (it.weight) {
+    var weightBadge = document.createElement('span');
+    weightBadge.className = 'meta-badge';
+    weightBadge.textContent = '⚖ ' + it.weight + '%';
+    top.appendChild(weightBadge);
+  }
+  if (it.duration) {
+    var durBadge = document.createElement('span');
+    durBadge.className = 'meta-badge';
+    durBadge.textContent = '⏱ ' + it.duration;
+    top.appendChild(durBadge);
+  }
   main.appendChild(top);
 
   var title = document.createElement('p');
@@ -251,6 +281,16 @@ function makeCard(it) {
   var actions = document.createElement('div');
   actions.className = 'card-actions';
 
+  var check = document.createElement('input');
+  check.type = 'checkbox';
+  check.className = 'quick-check';
+  check.title = 'Marquer comme terminé';
+  check.checked = it.status === 'fini';
+  check.onchange = function () {
+    updateDevoir(it.id, { status: check.checked ? 'fini' : 'a_faire' });
+  };
+  actions.appendChild(check);
+
   var sel = document.createElement('select');
   sel.className = 'status-select';
   Object.keys(STATUS).forEach(function (key) {
@@ -263,38 +303,68 @@ function makeCard(it) {
   sel.onchange = function () { updateDevoir(it.id, { status: sel.value }); };
   actions.appendChild(sel);
 
+  var kebabWrap = document.createElement('div');
+  kebabWrap.className = 'kebab-wrap';
+
+  var kebabBtn = document.createElement('button');
+  kebabBtn.className = 'icon-btn';
+  kebabBtn.title = 'Options';
+  kebabBtn.innerHTML = '&#8942;';
+  kebabWrap.appendChild(kebabBtn);
+
+  var menu = document.createElement('div');
+  menu.className = 'kebab-menu';
+
   var editBtn = document.createElement('button');
-  editBtn.className = 'icon-btn';
-  editBtn.title = 'Modifier';
-  editBtn.innerHTML = '&#9998;';
-  editBtn.onclick = function () { openPanel(it); };
-  actions.appendChild(editBtn);
+  editBtn.textContent = 'Modifier';
+  editBtn.onclick = function () {
+    menu.classList.remove('open');
+    openPanel(it);
+  };
+  menu.appendChild(editBtn);
 
   var delBtn = document.createElement('button');
-  delBtn.className = 'icon-btn danger';
-  delBtn.title = 'Supprimer';
-  delBtn.innerHTML = '&#10005;';
+  delBtn.className = 'danger';
+  delBtn.textContent = 'Supprimer';
   var confirming = false;
   delBtn.onclick = function () {
     if (!confirming) {
       confirming = true;
       delBtn.classList.add('confirm');
-      delBtn.title = 'Cliquer pour confirmer';
+      delBtn.textContent = 'Confirmer ?';
       setTimeout(function () {
         confirming = false;
         delBtn.classList.remove('confirm');
-        delBtn.title = 'Supprimer';
+        delBtn.textContent = 'Supprimer';
       }, 3000);
       return;
     }
+    menu.classList.remove('open');
     deleteDevoir(it.id);
   };
-  actions.appendChild(delBtn);
+  menu.appendChild(delBtn);
+
+  kebabWrap.appendChild(menu);
+  kebabBtn.onclick = function (e) {
+    e.stopPropagation();
+    var wasOpen = menu.classList.contains('open');
+    closeAllKebabMenus();
+    if (!wasOpen) menu.classList.add('open');
+  };
+  actions.appendChild(kebabWrap);
 
   side.appendChild(actions);
   card.appendChild(side);
   return card;
 }
+
+function closeAllKebabMenus() {
+  document.querySelectorAll('.kebab-menu.open').forEach(function (m) {
+    m.classList.remove('open');
+  });
+}
+
+document.addEventListener('click', closeAllKebabMenus);
 
 function render() {
   renderWhoAmI();
@@ -318,10 +388,30 @@ function render() {
     empty.className = 'empty';
     empty.innerHTML = '<div class="big">📓</div>' +
       '<p><strong>Aucun devoir ici pour l\'instant.</strong></p>' +
-      '<p>Ajoutez le premier avec le bouton ci-dessus.</p>';
+      '<p>Ajoutez le premier avec le bouton ci-dessous.</p>';
     list.appendChild(empty);
   } else {
-    active.forEach(function (it) { list.appendChild(makeCard(it)); });
+    var groups = [
+      { label: 'En retard', items: [] },
+      { label: 'Cette semaine', items: [] },
+      { label: 'Semaine prochaine', items: [] },
+      { label: 'Plus tard', items: [] }
+    ];
+    active.forEach(function (it) {
+      var diff = dueInfo(it.dueDate).diff;
+      if (diff < 0) groups[0].items.push(it);
+      else if (diff <= 6) groups[1].items.push(it);
+      else if (diff <= 13) groups[2].items.push(it);
+      else groups[3].items.push(it);
+    });
+    groups.forEach(function (g) {
+      if (g.items.length === 0) return;
+      var header = document.createElement('div');
+      header.className = 'group-header';
+      header.textContent = g.label;
+      list.appendChild(header);
+      g.items.forEach(function (it) { list.appendChild(makeCard(it)); });
+    });
     if (showDone) done.forEach(function (it) { list.appendChild(makeCard(it)); });
   }
 
@@ -349,6 +439,8 @@ function openPanel(it) {
   document.getElementById('panel-title').textContent = it ? 'Modifier le devoir' : 'Nouveau devoir';
   document.getElementById('f-title').value = it ? it.title : '';
   document.getElementById('f-date').value = it ? it.dueDate : '';
+  document.getElementById('f-weight').value = it && it.weight ? it.weight : '';
+  document.getElementById('f-duration').value = it ? it.duration || '' : '';
   document.getElementById('f-desc').value = it ? it.description || '' : '';
   document.getElementById('assign-row').setAttribute('data-value', it ? it.assignedTo : myName);
   document.getElementById('f-subject').setAttribute('data-current', it ? it.subject || '' : '');
@@ -374,11 +466,14 @@ function savePanel() {
     document.getElementById('f-title').focus();
     return;
   }
+  var weightVal = document.getElementById('f-weight').value.trim();
   var data = {
     title: title,
     type: document.getElementById('type-row').getAttribute('data-value') || 'devoir',
     subject: document.getElementById('f-subject').value,
     dueDate: dueDate,
+    weight: weightVal ? Number(weightVal) : null,
+    duration: document.getElementById('f-duration').value,
     description: document.getElementById('f-desc').value.trim(),
     assignedTo: document.getElementById('assign-row').getAttribute('data-value') || myName
   };

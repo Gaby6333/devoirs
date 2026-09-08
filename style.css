@@ -18,6 +18,10 @@
     --todo-soft: #e7eae0;
     --exam: #6e4b8a;
     --exam-soft: #ece2f4;
+    --lecture: #1f6f8b;
+    --lecture-soft: #dbebf1;
+    --team: #a15c34;
+    --team-soft: #f3e3d5;
     --shadow: 0 1px 2px rgba(30,33,28,0.06), 0 8px 24px -12px rgba(30,33,28,0.18);
   }
 
@@ -42,6 +46,10 @@
       --todo-soft: #262a2f;
       --exam: #c9a3e0;
       --exam-soft: #392a47;
+      --lecture: #7fc4de;
+      --lecture-soft: #1c2f38;
+      --team: #d99b6c;
+      --team-soft: #3a2a1c;
       --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px -12px rgba(0,0,0,0.5);
     }
   }
@@ -66,6 +74,10 @@
     --todo-soft: #262a2f;
     --exam: #c9a3e0;
     --exam-soft: #392a47;
+    --lecture: #7fc4de;
+    --lecture-soft: #1c2f38;
+    --team: #d99b6c;
+    --team-soft: #3a2a1c;
     --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px -12px rgba(0,0,0,0.5);
   }
 
@@ -170,6 +182,7 @@
     border-radius: 14px;
     padding: 14px 16px;
     box-shadow: var(--shadow);
+    min-width: 0;
   }
 
   .stat .num {
@@ -184,6 +197,9 @@
     margin-top: 6px;
     font-size: 12.5px;
     color: var(--ink-soft);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .stat.overdue .num { color: var(--overdue); }
@@ -193,7 +209,6 @@
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    justify-content: space-between;
     gap: 10px;
     margin-bottom: 16px;
   }
@@ -222,20 +237,27 @@
     font-weight: 600;
   }
 
-  .add-btn {
+  .fab {
+    position: fixed;
+    right: 22px;
+    bottom: 22px;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
     border: none;
     background: var(--accent);
     color: var(--accent-ink);
-    font: inherit;
-    font-weight: 600;
-    font-size: 13.5px;
-    padding: 9px 16px;
-    border-radius: 10px;
+    font-size: 28px;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     cursor: pointer;
-    box-shadow: var(--shadow);
+    box-shadow: 0 4px 14px -4px rgba(0,0,0,0.35), var(--shadow);
+    z-index: 15;
   }
 
-  .add-btn:hover { filter: brightness(1.06); }
+  .fab:hover { filter: brightness(1.06); }
 
   .panel {
     background: var(--surface);
@@ -311,17 +333,16 @@
     font-weight: 600;
   }
 
-  .type-row { display: flex; gap: 6px; }
+  .type-row { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 
   .type-pick {
-    flex: 1;
     border: 1px solid var(--border);
     background: var(--bg);
     color: var(--ink);
     font: inherit;
     font-size: 13.5px;
     font-weight: 600;
-    padding: 9px 12px;
+    padding: 9px 10px;
     border-radius: 9px;
     cursor: pointer;
   }
@@ -336,6 +357,18 @@
     background: var(--exam-soft);
     border-color: var(--exam);
     color: var(--exam);
+  }
+
+  .type-pick.active[data-type="lecture"] {
+    background: var(--lecture-soft);
+    border-color: var(--lecture);
+    color: var(--lecture);
+  }
+
+  .type-pick.active[data-type="projet"] {
+    background: var(--team-soft);
+    border-color: var(--team);
+    color: var(--team);
   }
 
   .new-course-row {
@@ -403,6 +436,17 @@
 
   .list { display: flex; flex-direction: column; gap: 10px; }
 
+  .group-header {
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--ink-soft);
+    margin: 18px 0 -2px;
+  }
+
+  .group-header:first-child { margin-top: 0; }
+
   .card {
     background: var(--surface);
     border: 1px solid var(--border);
@@ -444,24 +488,36 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.03em;
-    color: var(--accent);
-    background: var(--accent-soft);
     padding: 3px 8px;
     border-radius: 6px;
   }
 
-  .exam-tag {
+  .type-tag {
     font-size: 11.5px;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.03em;
-    color: var(--exam);
-    background: var(--exam-soft);
     padding: 3px 8px;
     border-radius: 6px;
     display: inline-flex;
     align-items: center;
     gap: 4px;
+  }
+
+  .type-tag.devoir { color: var(--todo); background: var(--todo-soft); }
+  .type-tag.examen { color: var(--exam); background: var(--exam-soft); }
+  .type-tag.lecture { color: var(--lecture); background: var(--lecture-soft); }
+  .type-tag.projet { color: var(--team); background: var(--team-soft); }
+
+  .meta-badge {
+    font-family: 'JetBrains Mono', monospace;
+    font-variant-numeric: tabular-nums;
+    font-size: 11.5px;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 6px;
+    background: var(--surface-2);
+    color: var(--ink-soft);
   }
 
   .due-badge {
@@ -502,7 +558,17 @@
     flex: none;
   }
 
-  .card-actions { display: flex; gap: 4px; }
+  .card-actions { display: flex; align-items: center; gap: 8px; }
+
+  .quick-check {
+    width: 19px;
+    height: 19px;
+    border-radius: 5px;
+    cursor: pointer;
+    accent-color: var(--done);
+  }
+
+  .kebab-wrap { position: relative; }
 
   .icon-btn {
     border: none;
@@ -518,7 +584,40 @@
   }
 
   .icon-btn:hover { background: var(--surface-2); color: var(--ink); }
-  .icon-btn.danger.confirm { background: var(--overdue-soft); color: var(--overdue); }
+
+  .kebab-menu {
+    display: none;
+    position: absolute;
+    right: 0;
+    top: 30px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    box-shadow: var(--shadow);
+    padding: 4px;
+    min-width: 140px;
+    z-index: 10;
+  }
+
+  .kebab-menu.open { display: block; }
+
+  .kebab-menu button {
+    display: block;
+    width: 100%;
+    text-align: left;
+    border: none;
+    background: transparent;
+    color: var(--ink);
+    font: inherit;
+    font-size: 13px;
+    padding: 8px 10px;
+    border-radius: 7px;
+    cursor: pointer;
+  }
+
+  .kebab-menu button:hover { background: var(--surface-2); }
+  .kebab-menu button.danger { color: var(--overdue); }
+  .kebab-menu button.danger.confirm { background: var(--overdue-soft); }
 
   select.status-select {
     font: inherit;
@@ -634,7 +733,10 @@
 
   @media (max-width: 560px) {
     .field-row { grid-template-columns: 1fr; }
-    .stats { grid-template-columns: 1fr; }
+    .stat { padding: 10px 8px; }
+    .stat .num { font-size: 19px; }
+    .stat .lbl { font-size: 10.5px; }
     .card { flex-direction: column; }
     .card-side { flex-direction: row-reverse; align-items: center; width: 100%; justify-content: space-between; }
+    .fab { right: 16px; bottom: 16px; width: 52px; height: 52px; }
   }
