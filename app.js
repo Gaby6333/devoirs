@@ -56,6 +56,20 @@ function subjectColor(name) {
   return SUBJECT_COLORS[hash % SUBJECT_COLORS.length];
 }
 
+function celebrate(x, y) {
+  var emojis = ['🎉', '✨', '👏', '🎊'];
+  for (var i = 0; i < 6; i++) {
+    var el = document.createElement('span');
+    el.className = 'confetti';
+    el.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+    el.style.left = x + 'px';
+    el.style.top = y + 'px';
+    el.style.setProperty('--dx', (Math.random() * 120 - 60) + 'px');
+    document.body.appendChild(el);
+    el.addEventListener('animationend', function () { this.remove(); });
+  }
+}
+
 function relativeTime(iso) {
   if (!iso) return '';
   var diffMin = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
@@ -125,6 +139,8 @@ function addSwipe(card, it) {
     if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 90) {
       if (dx > 0) {
         card.style.transform = 'translateX(500px)';
+        var r = card.getBoundingClientRect();
+        celebrate(r.left + r.width / 2, r.top + r.height / 2);
         setTimeout(function () { updateDevoir(it.id, { status: 'fini' }); }, 150);
       } else {
         card.style.transform = 'translateX(-500px)';
@@ -223,10 +239,16 @@ function renderStats() {
   document.getElementById('stat-done').textContent = done;
 }
 
+function startOfWeek() {
+  var now = new Date();
+  var start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay());
+  return start.getTime();
+}
+
 function renderWeekSummary() {
-  var weekAgo = Date.now() - 7 * 86400000;
+  var weekStart = startOfWeek();
   var doneThisWeek = items.filter(function (it) {
-    return it.status === 'fini' && it.updatedAt && new Date(it.updatedAt).getTime() >= weekAgo;
+    return it.status === 'fini' && it.updatedAt && new Date(it.updatedAt).getTime() >= weekStart;
   });
   var el = document.getElementById('week-summary');
   if (doneThisWeek.length === 0) {
@@ -466,7 +488,17 @@ function makeCard(it) {
   check.title = 'Marquer comme terminé';
   check.checked = it.status === 'fini';
   check.onchange = function () {
-    updateDevoir(it.id, { status: check.checked ? 'fini' : 'a_faire' });
+    if (!check.checked) {
+      updateDevoir(it.id, { status: 'a_faire' });
+      return;
+    }
+    if (!window.confirm('Marquer "' + it.title + '" comme terminé ?')) {
+      check.checked = false;
+      return;
+    }
+    var r = check.getBoundingClientRect();
+    celebrate(r.left + r.width / 2, r.top);
+    updateDevoir(it.id, { status: 'fini' });
   };
   actions.appendChild(check);
 
@@ -479,7 +511,17 @@ function makeCard(it) {
     if (it.status === key) opt.selected = true;
     sel.appendChild(opt);
   });
-  sel.onchange = function () { updateDevoir(it.id, { status: sel.value }); };
+  sel.onchange = function () {
+    if (sel.value === 'fini' && it.status !== 'fini') {
+      if (!window.confirm('Marquer "' + it.title + '" comme terminé ?')) {
+        sel.value = it.status;
+        return;
+      }
+      var r = sel.getBoundingClientRect();
+      celebrate(r.left + r.width / 2, r.top);
+    }
+    updateDevoir(it.id, { status: sel.value });
+  };
   actions.appendChild(sel);
 
   var kebabWrap = document.createElement('div');
