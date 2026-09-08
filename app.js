@@ -987,7 +987,10 @@ function renderWeek() {
 
   var scr = h('div', { class: 'screen' });
   scr.appendChild(h('header', { class: 'topbar' }, [
-    h('button', { class: 'bar-icon', type: 'button', 'aria-label': 'Semaine précédente', onclick: function () { state.weekOffset--; render(); } }, icon('ph-caret-left')),
+    h('div', { class: 'bar-tools' }, [
+      h('button', { class: 'bar-icon', type: 'button', 'aria-label': 'Retour', onclick: back }, icon('ph-arrow-left')),
+      h('button', { class: 'bar-icon', type: 'button', 'aria-label': 'Semaine précédente', onclick: function () { state.weekOffset--; render(); } }, icon('ph-caret-left'))
+    ]),
     h('div', { class: 'bar-title' }, 'Semaine du ' + dates[0].getDate() + ' ' + MONTHS_SHORT[dates[0].getMonth()]),
     h('button', { class: 'bar-icon', type: 'button', 'aria-label': 'Semaine suivante', onclick: function () { state.weekOffset++; render(); } }, icon('ph-caret-right'))
   ]));

@@ -1,4 +1,4 @@
-var CACHE_NAME = 'devoirs-v7';
+var CACHE_NAME = 'devoirs-v8';
 var FILES = [
   '.',
   'index.html',
