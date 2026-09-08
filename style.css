@@ -156,6 +156,11 @@
 
   .whoami button:hover { color: var(--ink); }
 
+  .theme-btn {
+    font-size: 14px;
+    padding: 5px 8px !important;
+  }
+
   .avatar {
     width: 22px;
     height: 22px;
@@ -236,6 +241,24 @@
     color: var(--accent-ink);
     font-weight: 600;
   }
+
+  .search-sort {
+    display: flex;
+    gap: 6px;
+    margin-left: auto;
+  }
+
+  .search-sort input, .search-sort select {
+    font: inherit;
+    font-size: 13px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--ink);
+    padding: 6px 10px;
+    border-radius: 999px;
+  }
+
+  .search-sort input { width: 150px; }
 
   .fab {
     position: fixed;
@@ -457,8 +480,9 @@
     display: flex;
     gap: 14px;
     align-items: flex-start;
-    animation: rise .35s ease both;
   }
+
+  .card-enter { animation: rise .35s ease both; }
 
   .card.overdue { border-left-color: var(--overdue); }
   .card.soon { border-left-color: var(--soon); }
@@ -470,7 +494,7 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .card { animation: none; }
+    .card-enter { animation: none; }
   }
 
   .card-main { flex: 1; min-width: 0; }
@@ -705,34 +729,31 @@
     margin: 0 0 18px;
   }
 
-  .overlay-card input {
-    width: 100%;
-    font: inherit;
-    font-size: 15px;
-    padding: 10px 13px;
-    border-radius: 10px;
+  .name-pick-row { display: flex; gap: 10px; }
+
+  .name-pick {
+    flex: 1;
     border: 1px solid var(--border);
     background: var(--bg);
     color: var(--ink);
-    margin-bottom: 12px;
-    text-align: center;
-  }
-
-  .overlay-card button {
-    width: 100%;
-    border: none;
-    background: var(--accent);
-    color: var(--accent-ink);
     font: inherit;
     font-weight: 600;
-    font-size: 14px;
-    padding: 10px;
-    border-radius: 10px;
+    font-size: 15px;
+    padding: 16px 10px;
+    border-radius: 12px;
     cursor: pointer;
+  }
+
+  .name-pick.active {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+    color: var(--accent);
   }
 
   @media (max-width: 560px) {
     .field-row { grid-template-columns: 1fr; }
+    .search-sort { margin-left: 0; width: 100%; }
+    .search-sort input { flex: 1; width: auto; }
     .stat { padding: 10px 8px; }
     .stat .num { font-size: 19px; }
     .stat .lbl { font-size: 10.5px; }

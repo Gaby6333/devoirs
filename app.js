@@ -7,6 +7,7 @@ var firebaseConfig = {
   appId: "1:589504609242:web:b8fab2fba6eee0e9859ee3"
 };
 firebase.initializeApp(firebaseConfig);
+firebase.firestore().enablePersistence({ synchronizeTabs: true }).catch(function () {});
 var col = firebase.firestore().collection('devoirs');
 var coursesCol = firebase.firestore().collection('cours');
 
@@ -16,6 +17,14 @@ var myName = localStorage.getItem('devoirs-name') || '';
 var filter = 'tous';
 var editingId = null;
 var showDone = false;
+var searchQuery = '';
+var sortBy = 'date';
+var KNOWN_NAMES = ['Léonie', 'Gabriel'];
+
+var currentTheme = localStorage.getItem('devoirs-theme') || 'auto';
+if (currentTheme === 'light' || currentTheme === 'dark') {
+  document.documentElement.setAttribute('data-theme', currentTheme);
+}
 
 var STATUS = {
   a_faire: { label: 'À faire' },
@@ -111,12 +120,7 @@ function dueInfo(iso) {
 }
 
 function knownNames() {
-  var set = {};
-  if (myName) set[myName] = true;
-  items.forEach(function (it) {
-    if (it.assignedTo && it.assignedTo !== 'Nous deux') set[it.assignedTo] = true;
-  });
-  return Object.keys(set);
+  return KNOWN_NAMES.slice();
 }
 
 function renderWhoAmI() {
@@ -209,11 +213,71 @@ function renderSubjectSelect() {
   sel.appendChild(addOpt);
 }
 
+function pad2(n) { return n < 10 ? '0' + n : '' + n; }
+
+function icsTimestamp() {
+  var d = new Date();
+  return d.getUTCFullYear() + pad2(d.getUTCMonth() + 1) + pad2(d.getUTCDate()) + 'T' +
+    pad2(d.getUTCHours()) + pad2(d.getUTCMinutes()) + pad2(d.getUTCSeconds()) + 'Z';
+}
+
+function escapeIcs(text) {
+  return (text || '').replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\n/g, '\\n');
+}
+
+function downloadIcs(it) {
+  var typeLabel = TYPES[it.type] ? TYPES[it.type].label : 'Devoir';
+  var summary = escapeIcs(typeLabel + ': ' + it.title + (it.subject ? ' (' + it.subject + ')' : ''));
+  var desc = escapeIcs(it.description || '');
+  var dateStr = it.dueDate.replace(/-/g, '');
+  var lines = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//Devoirs a deux//FR',
+    'BEGIN:VEVENT',
+    'UID:' + it.id + '@devoirs-a-deux',
+    'DTSTAMP:' + icsTimestamp(),
+    'DTSTART;VALUE=DATE:' + dateStr,
+    'SUMMARY:' + summary,
+    'DESCRIPTION:' + desc,
+    'END:VEVENT',
+    'END:VCALENDAR'
+  ];
+  var blob = new Blob([lines.join('\r\n')], { type: 'text/calendar' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = 'devoir.ics';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
+}
+
+function duplicateDevoir(it) {
+  var d = new Date(it.dueDate + 'T00:00:00');
+  d.setDate(d.getDate() + 7);
+  addDevoir({
+    title: it.title,
+    type: it.type || 'devoir',
+    subject: it.subject || '',
+    dueDate: d.toISOString().slice(0, 10),
+    weight: it.weight || null,
+    duration: it.duration || '',
+    description: it.description || '',
+    assignedTo: it.assignedTo,
+    status: 'a_faire'
+  });
+}
+
 function makeCard(it) {
   var card = document.createElement('div');
   var info = dueInfo(it.dueDate);
   var stateCls = it.status === 'fini' ? 'fini' : info.cls;
-  card.className = 'card' + (stateCls ? ' ' + stateCls : '');
+  card.className = 'card card-enter' + (stateCls ? ' ' + stateCls : '');
+  card.addEventListener('animationend', function () {
+    card.classList.remove('card-enter');
+  }, { once: true });
 
   var main = document.createElement('div');
   main.className = 'card-main';
@@ -317,17 +381,37 @@ function makeCard(it) {
 
   var editBtn = document.createElement('button');
   editBtn.textContent = 'Modifier';
-  editBtn.onclick = function () {
+  editBtn.onclick = function (e) {
+    e.stopPropagation();
     menu.classList.remove('open');
     openPanel(it);
   };
   menu.appendChild(editBtn);
 
+  var icsBtn = document.createElement('button');
+  icsBtn.textContent = '📅 Ajouter au calendrier';
+  icsBtn.onclick = function (e) {
+    e.stopPropagation();
+    menu.classList.remove('open');
+    downloadIcs(it);
+  };
+  menu.appendChild(icsBtn);
+
+  var dupBtn = document.createElement('button');
+  dupBtn.textContent = '🔁 Dupliquer (+7 j)';
+  dupBtn.onclick = function (e) {
+    e.stopPropagation();
+    menu.classList.remove('open');
+    duplicateDevoir(it);
+  };
+  menu.appendChild(dupBtn);
+
   var delBtn = document.createElement('button');
   delBtn.className = 'danger';
   delBtn.textContent = 'Supprimer';
   var confirming = false;
-  delBtn.onclick = function () {
+  delBtn.onclick = function (e) {
+    e.stopPropagation();
     if (!confirming) {
       confirming = true;
       delBtn.classList.add('confirm');
@@ -371,12 +455,17 @@ function render() {
   renderStats();
   renderChips();
 
+  var query = searchQuery.trim().toLowerCase();
   var filtered = items.filter(function (it) {
-    return filter === 'tous' || it.assignedTo === filter;
+    if (filter !== 'tous' && it.assignedTo !== filter) return false;
+    if (query) {
+      var hay = (it.title + ' ' + (it.subject || '')).toLowerCase();
+      if (hay.indexOf(query) === -1) return false;
+    }
+    return true;
   });
 
-  var active = filtered.filter(function (it) { return it.status !== 'fini'; })
-    .sort(function (a, b) { return a.dueDate.localeCompare(b.dueDate); });
+  var active = filtered.filter(function (it) { return it.status !== 'fini'; });
   var done = filtered.filter(function (it) { return it.status === 'fini'; })
     .sort(function (a, b) { return (b.updatedAt || '').localeCompare(a.updatedAt || ''); });
 
@@ -386,11 +475,25 @@ function render() {
   if (active.length === 0 && (done.length === 0 || !showDone)) {
     var empty = document.createElement('div');
     empty.className = 'empty';
-    empty.innerHTML = '<div class="big">📓</div>' +
-      '<p><strong>Aucun devoir ici pour l\'instant.</strong></p>' +
-      '<p>Ajoutez le premier avec le bouton ci-dessous.</p>';
+    if (query) {
+      empty.innerHTML = '<div class="big">🔍</div>' +
+        '<p><strong>Aucun résultat pour cette recherche.</strong></p>';
+    } else {
+      empty.innerHTML = '<div class="big">📓</div>' +
+        '<p><strong>Aucun devoir ici pour l\'instant.</strong></p>' +
+        '<p>Ajoutez le premier avec le bouton ci-dessous.</p>';
+    }
     list.appendChild(empty);
+  } else if (sortBy === 'matiere' || sortBy === 'personne') {
+    var field = sortBy === 'matiere' ? 'subject' : 'assignedTo';
+    active.sort(function (a, b) {
+      var cmp = (a[field] || '').localeCompare(b[field] || '');
+      return cmp !== 0 ? cmp : a.dueDate.localeCompare(b.dueDate);
+    });
+    active.forEach(function (it) { list.appendChild(makeCard(it)); });
+    if (showDone) done.forEach(function (it) { list.appendChild(makeCard(it)); });
   } else {
+    active.sort(function (a, b) { return a.dueDate.localeCompare(b.dueDate); });
     var groups = [
       { label: 'En retard', items: [] },
       { label: 'Cette semaine', items: [] },
@@ -526,28 +629,52 @@ document.getElementById('new-course-input').addEventListener('keydown', function
   if (e.key === 'Enter') { e.preventDefault(); document.getElementById('add-course-btn').click(); }
 });
 document.getElementById('done-toggle').onclick = function () { showDone = !showDone; render(); };
+
 document.getElementById('switch-name').onclick = function () {
-  document.getElementById('name-input').value = myName;
+  document.querySelectorAll('.name-pick').forEach(function (btn) {
+    btn.classList.toggle('active', btn.getAttribute('data-name') === myName);
+  });
   document.getElementById('name-overlay').classList.remove('hidden');
 };
 
-document.getElementById('name-submit').onclick = function () {
-  var val = document.getElementById('name-input').value.trim();
-  if (!val) return;
-  myName = val;
-  localStorage.setItem('devoirs-name', myName);
-  document.getElementById('name-overlay').classList.add('hidden');
+document.querySelectorAll('.name-pick').forEach(function (btn) {
+  btn.onclick = function () {
+    myName = btn.getAttribute('data-name');
+    localStorage.setItem('devoirs-name', myName);
+    document.getElementById('name-overlay').classList.add('hidden');
+    render();
+  };
+});
+
+document.getElementById('search-input').addEventListener('input', function () {
+  searchQuery = this.value;
+  render();
+});
+
+document.getElementById('sort-select').onchange = function () {
+  sortBy = this.value;
   render();
 };
 
-document.getElementById('name-input').addEventListener('keydown', function (e) {
-  if (e.key === 'Enter') document.getElementById('name-submit').click();
-});
+var THEME_ICONS = { auto: '🌓', light: '☀️', dark: '🌙' };
+function applyTheme(theme) {
+  if (theme === 'light' || theme === 'dark') {
+    document.documentElement.setAttribute('data-theme', theme);
+  } else {
+    document.documentElement.removeAttribute('data-theme');
+  }
+  document.getElementById('theme-toggle').textContent = THEME_ICONS[theme];
+}
+applyTheme(currentTheme);
+document.getElementById('theme-toggle').onclick = function () {
+  var order = ['auto', 'light', 'dark'];
+  currentTheme = order[(order.indexOf(currentTheme) + 1) % order.length];
+  localStorage.setItem('devoirs-theme', currentTheme);
+  applyTheme(currentTheme);
+};
 
 if (myName) {
   document.getElementById('name-overlay').classList.add('hidden');
-} else {
-  document.getElementById('name-input').focus();
 }
 
 render();
