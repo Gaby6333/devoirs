@@ -52,6 +52,7 @@ var state = {
   draft: null,
   editingId: null,
   newCourse: false,
+  editingCourse: null,
   banner: ''
 };
 
@@ -121,12 +122,152 @@ function relativeTime(isoStr) {
   return 'il y a ' + days + ' j';
 }
 
+function subjectKey(name) { return (name || '').trim().toLowerCase(); }
+
+function courseByName(name) {
+  var key = subjectKey(name);
+  for (var i = 0; i < state.courses.length; i++) {
+    if (subjectKey(state.courses[i].name) === key) return state.courses[i];
+  }
+  return null;
+}
+
 function subjectColor(name) {
+  var c = courseByName(name);
+  if (c && c.color) return c.color;
   if (!name) return '#9397ab';
   var sum = 0;
   for (var i = 0; i < name.length; i++) sum += name.charCodeAt(i);
   return SUBJECT_COLORS[sum % SUBJECT_COLORS.length];
 }
+
+function subjectCount(name) {
+  var key = subjectKey(name);
+  var n = 0;
+  state.items.forEach(function (it) { if (subjectKey(it.subject) === key) n++; });
+  return n;
+}
+
+function allSubjects() {
+  var seen = {};
+  var list = [];
+  state.courses.forEach(function (c) {
+    var key = subjectKey(c.name);
+    if (!key || seen[key]) return;
+    seen[key] = true;
+    list.push({ id: c.id, name: c.name, color: c.color || null });
+  });
+  state.items.forEach(function (it) {
+    var key = subjectKey(it.subject);
+    if (!key || seen[key]) return;
+    seen[key] = true;
+    list.push({ id: null, name: it.subject, color: null });
+  });
+  list.sort(function (a, b) { return a.name.localeCompare(b.name, 'fr'); });
+  return list;
+}
+
+function hasDuplicateSubjects() {
+  var raw = {};
+  state.courses.forEach(function (c) {
+    var key = subjectKey(c.name);
+    if (!key) return;
+    raw[key] = raw[key] || {};
+    raw[key][c.name] = true;
+  });
+  state.items.forEach(function (it) {
+    if (!it.subject) return;
+    var key = subjectKey(it.subject);
+    raw[key] = raw[key] || {};
+    raw[key][it.subject] = true;
+  });
+  var dup = false;
+  Object.keys(raw).forEach(function (key) { if (Object.keys(raw[key]).length > 1) dup = true; });
+  return dup;
+}
+
+function mergeDuplicateSubjects() {
+  var raw = {};
+  state.courses.forEach(function (c) {
+    var key = subjectKey(c.name);
+    if (!key) return;
+    raw[key] = raw[key] || {};
+    raw[key][c.name] = raw[key][c.name] || 0;
+  });
+  state.items.forEach(function (it) {
+    if (!it.subject) return;
+    var key = subjectKey(it.subject);
+    raw[key] = raw[key] || {};
+    raw[key][it.subject] = (raw[key][it.subject] || 0) + 1;
+  });
+
+  var didSomething = false;
+
+  Object.keys(raw).forEach(function (key) {
+    var variants = Object.keys(raw[key]);
+    if (variants.length < 2) return;
+    didSomething = true;
+
+    var canonical = variants[0];
+    variants.forEach(function (v) { if (raw[key][v] > raw[key][canonical]) canonical = v; });
+
+    var docs = state.courses.filter(function (c) { return subjectKey(c.name) === key; });
+    var color = null;
+    docs.forEach(function (c) { if (c.color && !color) color = c.color; });
+    if (!color) color = subjectColor(canonical);
+
+    var kept = false;
+    docs.forEach(function (c) {
+      if (!kept) {
+        kept = true;
+        coursesCol.doc(c.id).update({ name: canonical, color: color });
+      } else {
+        coursesCol.doc(c.id).delete();
+      }
+    });
+    if (!kept) coursesCol.add({ name: canonical, color: color });
+
+    state.items.forEach(function (it) {
+      if (it.subject && it.subject !== canonical && subjectKey(it.subject) === key) {
+        col.doc(it.id).update({ subject: canonical, updatedAt: new Date().toISOString(), updatedBy: state.myName });
+      }
+    });
+  });
+
+  showBanner(didSomething ? 'Matières fusionnées.' : 'Aucun doublon trouvé.');
+}
+
+function cycleCourseColor(entry) {
+  var current = entry.color || subjectColor(entry.name);
+  var idx = SUBJECT_COLORS.indexOf(current);
+  var next = SUBJECT_COLORS[(idx + 1) % SUBJECT_COLORS.length];
+  if (entry.id) coursesCol.doc(entry.id).update({ color: next });
+  else coursesCol.add({ name: entry.name, color: next });
+}
+
+function renameCourse(entry, newName) {
+  newName = newName.trim();
+  state.editingCourse = null;
+  if (!newName || newName === entry.name) { render(); return; }
+  if (entry.id) coursesCol.doc(entry.id).update({ name: newName });
+  else coursesCol.add({ name: newName, color: entry.color || subjectColor(entry.name) });
+  state.items.forEach(function (it) {
+    if (it.subject === entry.name) col.doc(it.id).update({ subject: newName, updatedAt: new Date().toISOString(), updatedBy: state.myName });
+  });
+}
+
+function deleteCourse(entry) {
+  var copy = { name: entry.name, color: entry.color };
+  coursesCol.doc(entry.id).delete();
+  toast('Cours supprimé.', function () { coursesCol.add(copy); });
+}
+
+function addCourse(name) {
+  name = name.trim();
+  if (!name || courseByName(name)) return;
+  coursesCol.add({ name: name, color: subjectColor(name) });
+}
+
 function initials(name) { return name ? name.trim().charAt(0).toUpperCase() : '?'; }
 function isMine(name) { return name === state.myName; }
 
@@ -145,7 +286,7 @@ function startOfWeek(offset) {
 
 /* ── navigation ─────────────────────────────────────────── */
 
-var VIEWS = ['list', 'form', 'detail', 'week', 'settings'];
+var VIEWS = ['list', 'form', 'detail', 'week', 'settings', 'courses'];
 
 function urlFor(view, id) {
   if (view === 'list') return location.pathname;
@@ -171,6 +312,7 @@ window.addEventListener('popstate', function (e) {
   state.view = VIEWS.indexOf(st.view) > -1 ? st.view : 'list';
   state.selId = st.id || null;
   if (state.view !== 'form') { state.draft = null; state.editingId = null; }
+  if (state.view !== 'courses') state.editingCourse = null;
   render();
 });
 
@@ -887,13 +1029,71 @@ function renderSettings() {
       h('dt', {}, 'Afficher les terminés'),
       h('dd', {}, h('span', { class: 'switch' + (state.showDone ? ' on' : '') }, h('span', { class: 'knob' })))
     ]),
-    h('div', { class: 'row' }, [
+    h('div', { class: 'row tap', onclick: function () { go('courses'); } }, [
       h('dt', {}, 'Cours enregistrés'),
       h('dd', {}, String(subjectNames().length))
     ])
   ]));
 
   body.appendChild(h('p', { class: 'hist' }, 'Devoirs à deux · les données sont partagées en direct entre vos deux téléphones.'));
+
+  scr.appendChild(body);
+  return scr;
+}
+
+/* ── écran : cours ──────────────────────────────────────── */
+
+function renderCourses() {
+  var scr = h('div', { class: 'screen' });
+  scr.appendChild(topbar('Mes cours', {}));
+
+  var body = h('div', { class: 'settings' });
+
+  if (hasDuplicateSubjects()) {
+    body.appendChild(h('button', {
+      class: 'btn-ghost merge-btn', type: 'button',
+      onclick: function () { mergeDuplicateSubjects(); }
+    }, [icon('ph-broom'), 'Fusionner les doublons']));
+  }
+
+  var rows = h('div', { class: 'rows' });
+  allSubjects().forEach(function (entry) {
+    var count = subjectCount(entry.name);
+    var color = entry.color || subjectColor(entry.name);
+
+    var nameCell;
+    if (state.editingCourse === entry.name) {
+      var input = h('input', { type: 'text', value: entry.name, maxlength: '40' });
+      nameCell = h('div', { class: 'new-course-row course-edit' }, [
+        input,
+        h('button', { type: 'button', onclick: function () { renameCourse(entry, input.value); } }, 'OK')
+      ]);
+    } else {
+      nameCell = h('dt', { class: 'course-name', onclick: function () { state.editingCourse = entry.name; render(); } }, entry.name);
+    }
+
+    rows.appendChild(h('div', { class: 'row course-row' }, [
+      h('button', {
+        class: 'color-dot', type: 'button', style: 'background:' + color,
+        'aria-label': 'Changer la couleur', onclick: function () { cycleCourseColor(entry); }
+      }),
+      nameCell,
+      h('span', { class: 'course-count' }, count ? (count + (count > 1 ? ' devoirs' : ' devoir')) : 'inutilisé'),
+      entry.id && !count
+        ? h('button', {
+            class: 'course-del', type: 'button', 'aria-label': 'Supprimer',
+            onclick: function () { deleteCourse(entry); }
+          }, icon('ph-trash'))
+        : null
+    ]));
+  });
+  body.appendChild(rows);
+
+  var addInput = h('input', { type: 'text', placeholder: 'Nom du cours', maxlength: '40' });
+  body.appendChild(h('div', { class: 'new-course-row' }, [
+    addInput,
+    h('button', { type: 'button', onclick: function () { addCourse(addInput.value); addInput.value = ''; } }, 'Ajouter')
+  ]));
 
   scr.appendChild(body);
   return scr;
@@ -916,6 +1116,7 @@ function render() {
   else if (state.view === 'detail') root.appendChild(renderDetail());
   else if (state.view === 'week') root.appendChild(renderWeek());
   else if (state.view === 'settings') root.appendChild(renderSettings());
+  else if (state.view === 'courses') root.appendChild(renderCourses());
   else { root.appendChild(renderList()); renderListBody(); }
 }
 
