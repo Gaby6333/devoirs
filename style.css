@@ -431,7 +431,9 @@ button, input, textarea, select { font-family: inherit; }
   border: 1.5px solid var(--ink-ghost);
 }
 
-.check:hover { color: var(--ink-soft); }
+@media (hover: hover) {
+  .check:hover { color: var(--ink-soft); }
+}
 .check.on { color: var(--done); }
 .check.on::before { border-color: transparent; }
 
