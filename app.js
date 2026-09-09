@@ -348,6 +348,7 @@ function updateDevoir(id, data) {
   data.updatedAt = new Date().toISOString();
   data.updatedBy = state.myName;
   return col.doc(id).update(data).catch(function () {
+    listBusy = false;
     showBanner("Échec de la mise à jour — vérifie ta connexion et réessaie.");
   });
 }
@@ -620,6 +621,8 @@ function renderListBody() {
   }
 }
 
+var listBusy = false;
+
 function card(it) {
   var info = dueInfo(it.dueDate);
   var done = it.status === 'fini';
@@ -650,7 +653,12 @@ function card(it) {
   var check = h('button', {
     class: 'check' + (done ? ' on' : ''), type: 'button',
     'aria-label': done ? 'Rouvrir' : 'Marquer fini',
-    onclick: function (e) { e.stopPropagation(); setStatus(it, done ? 'a_faire' : 'fini'); }
+    onclick: function (e) {
+      e.stopPropagation();
+      if (listBusy) return;
+      listBusy = true;
+      setStatus(it, done ? 'a_faire' : 'fini');
+    }
   }, done ? icon('ph-check-circle', 'ph-fill') : icon('ph-check'));
 
   return h('article', { class: 'card' + (edge ? ' ' + edge : '') }, [main, h('div', { class: 'card-side' }, check)]);
@@ -1019,11 +1027,7 @@ function renderWeek() {
     h('div', { class: 'stat done' }, [h('div', { class: 'num' }, wDone), h('div', { class: 'lbl' }, 'terminés')])
   ]));
 
-  var shown = dates.filter(function (dt) { return (byDate[iso(dt)] || []).length || iso(dt) === iso(today()); });
-  if (!shown.length) {
-    body.appendChild(h('div', { class: 'empty' }, h('p', {}, 'Rien de prévu cette semaine.')));
-  }
-  shown.forEach(function (dt) {
+  dates.forEach(function (dt) {
     var key = iso(dt);
     var day = byDate[key] || [];
     var info = dueInfo(key);
@@ -1233,6 +1237,7 @@ col.onSnapshot(function (snap) {
   });
   state.items = next;
   state.loaded = true;
+  listBusy = false;
   render();
   checkReminders();
 }, function () {
