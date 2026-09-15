@@ -12,11 +12,17 @@ var firebaseConfig = {
 };
 firebase.initializeApp(firebaseConfig);
 firebase.firestore().enablePersistence({ synchronizeTabs: true }).catch(function () {});
-firebase.auth().signInAnonymously().catch(function () {});
 var col = firebase.firestore().collection('devoirs');
 var coursesCol = firebase.firestore().collection('cours');
 
 var KNOWN_NAMES = ['Léonie', 'Gabriel'];
+var NTFY_TOPIC = 'devoirs-leonie-gabriel-x7k2';
+var EMAIL_BY_NAME = {
+  'Léonie': 'leonieroystdenis@hotmail.com',
+  'Gabriel': 'gabrieldurette17@gmail.com'
+};
+var NAME_BY_EMAIL = {};
+KNOWN_NAMES.forEach(function (n) { NAME_BY_EMAIL[EMAIL_BY_NAME[n].toLowerCase()] = n; });
 
 var TYPES = {
   devoir: { label: 'Devoir', icon: 'ph-note-pencil' },
@@ -339,9 +345,32 @@ function showBanner(msg) {
   setTimeout(function () { state.banner = ''; render(); }, 5000);
 }
 
+/* ── notifications push (ntfy) ─────────────────────────────
+   ponytail: rappel "veille" programmé via X-At au moment de l'enregistrement ;
+   ntfy.sh plafonne le délai à 3 j, donc rien n'est programmé au-delà — les
+   devoirs plus lointains restent couverts par checkReminders() quand l'app
+   est ouverte. Pas d'annulation si le devoir est fini/supprimé entre-temps. */
+function notifyNtfy(title, body, delayAt) {
+  var headers = { Title: title };
+  if (delayAt) headers['X-At'] = String(delayAt);
+  fetch('https://ntfy.sh/' + NTFY_TOPIC, { method: 'POST', headers: headers, body: body }).catch(function () {});
+}
+
+function scheduleReminder(payload) {
+  if (!payload.dueDate || payload.status === 'fini') return;
+  var target = parseDate(payload.dueDate);
+  target.setDate(target.getDate() - 1);
+  target.setHours(8, 0, 0, 0);
+  var deltaMs = target.getTime() - Date.now();
+  if (deltaMs < 10000 || deltaMs > 3 * 86400000) return;
+  notifyNtfy('Devoir demain', payload.title + (payload.subject ? ' · ' + payload.subject : ''), Math.floor(target.getTime() / 1000));
+}
+
 function addDevoir(data) {
   data.createdAt = new Date().toISOString();
   data.createdBy = state.myName;
+  notifyNtfy('Nouveau devoir', state.myName + ' a ajouté : ' + data.title + (data.subject ? ' · ' + data.subject : ''));
+  scheduleReminder(data);
   return col.add(data).catch(function () {
     showBanner("Échec de l'enregistrement — vérifie ta connexion et réessaie.");
   });
@@ -364,7 +393,10 @@ function deleteDevoir(id) {
 
 function setStatus(it, status) {
   updateDevoir(it.id, { status: status });
-  if (status === 'fini') toast('Bravo — c\'est fini.', function () { updateDevoir(it.id, { status: it.status }); });
+  if (status === 'fini') {
+    toast('Bravo — c\'est fini.', function () { updateDevoir(it.id, { status: it.status }); });
+    notifyNtfy('Devoir fini', state.myName + ' a terminé : ' + it.title);
+  }
 }
 
 function payloadOf(it) {
@@ -828,6 +860,7 @@ function saveForm() {
   });
   if (state.editingId) {
     updateDevoir(state.editingId, payload);
+    scheduleReminder(payload);
     state.draft = null;
     var id = state.editingId;
     state.editingId = null;
@@ -1080,12 +1113,8 @@ function renderSettings() {
     ]),
     h('button', {
       class: 'btn-mini', type: 'button',
-      onclick: function () {
-        state.myName = other;
-        localStorage.setItem('devoirs-name', other);
-        render();
-      }
-    }, 'Changer')
+      onclick: function () { firebase.auth().signOut(); }
+    }, 'Se déconnecter')
   ]));
 
   body.appendChild(h('label', { class: 'section' }, 'Thème'));
@@ -1215,13 +1244,23 @@ function render() {
 
 /* ── démarrage ──────────────────────────────────────────── */
 
+var pendingName = null;
 Array.prototype.forEach.call(document.querySelectorAll('.name-pick'), function (btn) {
   btn.onclick = function () {
-    state.myName = btn.getAttribute('data-name');
-    localStorage.setItem('devoirs-name', state.myName);
-    render();
+    pendingName = btn.getAttribute('data-name');
+    document.getElementById('name-pick-row').hidden = true;
+    document.getElementById('login-form').hidden = false;
+    document.getElementById('login-password').focus();
   };
 });
+document.getElementById('login-form').onsubmit = function (e) {
+  e.preventDefault();
+  var pwd = document.getElementById('login-password').value;
+  document.getElementById('login-error').textContent = '';
+  firebase.auth().signInWithEmailAndPassword(EMAIL_BY_NAME[pendingName], pwd).catch(function () {
+    document.getElementById('login-error').textContent = 'Mot de passe incorrect.';
+  });
+};
 document.getElementById('toast-undo').onclick = hideToast;
 
 document.addEventListener('visibilitychange', function () {
@@ -1231,30 +1270,57 @@ document.addEventListener('visibilitychange', function () {
 readUrl();
 render();
 
-col.onSnapshot(function (snap) {
-  var next = [];
-  snap.forEach(function (doc) {
-    var data = doc.data();
-    data.id = doc.id;
-    next.push(data);
-  });
-  state.items = next;
-  state.loaded = true;
-  listBusy = false;
-  render();
-  checkReminders();
-}, function () {
-  state.loaded = true;
-  showBanner('Connexion perdue — les changements se synchroniseront au retour du réseau.');
-});
+/* ponytail: pas de désabonnement — un seul login par session d'app, jamais
+   de bascule de compte sans rechargement, donc les listeners Firestore ne
+   sont démarrés qu'une fois. */
+var storesStarted = false;
+function startStores() {
+  if (storesStarted) return;
+  storesStarted = true;
 
-coursesCol.onSnapshot(function (snap) {
-  var next = [];
-  snap.forEach(function (doc) {
-    var data = doc.data();
-    data.id = doc.id;
-    next.push(data);
+  col.onSnapshot(function (snap) {
+    var next = [];
+    snap.forEach(function (doc) {
+      var data = doc.data();
+      data.id = doc.id;
+      next.push(data);
+    });
+    state.items = next;
+    state.loaded = true;
+    listBusy = false;
+    render();
+    checkReminders();
+  }, function () {
+    state.loaded = true;
+    showBanner('Connexion perdue — les changements se synchroniseront au retour du réseau.');
   });
-  state.courses = next;
-  if (state.view === 'form') render();
-}, function () {});
+
+  coursesCol.onSnapshot(function (snap) {
+    var next = [];
+    snap.forEach(function (doc) {
+      var data = doc.data();
+      data.id = doc.id;
+      next.push(data);
+    });
+    state.courses = next;
+    if (state.view === 'form') render();
+  }, function () {});
+}
+
+firebase.auth().onAuthStateChanged(function (user) {
+  var name = user && user.email ? NAME_BY_EMAIL[user.email.toLowerCase()] : null;
+  if (user && !name) { firebase.auth().signOut(); return; }
+
+  document.getElementById('login-form').hidden = true;
+  document.getElementById('name-pick-row').hidden = false;
+  document.getElementById('login-password').value = '';
+
+  if (name) {
+    state.myName = name;
+    localStorage.setItem('devoirs-name', name);
+    startStores();
+  } else {
+    state.myName = '';
+  }
+  render();
+});

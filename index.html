@@ -35,11 +35,17 @@
       <span>Devoirs à deux</span>
     </div>
     <h2>C'est qui, toi&nbsp;?</h2>
-    <p>Pour savoir qui a quoi à faire. Tu pourras changer plus tard.</p>
-    <div class="name-pick-row">
+    <p>Pour savoir qui a quoi à faire.</p>
+    <div class="name-pick-row" id="name-pick-row">
       <button type="button" class="name-pick" data-name="Léonie">Léonie</button>
       <button type="button" class="name-pick" data-name="Gabriel">Gabriel</button>
     </div>
+    <form id="login-form" class="field" hidden>
+      <label for="login-password">Mot de passe</label>
+      <input type="password" id="login-password" autocomplete="current-password">
+      <button type="submit" class="btn-solid" style="margin-top:14px">Se connecter</button>
+      <p id="login-error" class="hist" style="color:var(--overdue)"></p>
+    </form>
   </div>
 </div>
 
