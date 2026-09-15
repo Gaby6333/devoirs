@@ -1,0 +1,62 @@
+{
+  "app.js": {
+    "mtime": 1788913007.0,
+    "seen": 1789415456.476014,
+    "ast_hash": "0dfeeb9eb4b67451136728bae6214249",
+    "semantic_hash": "0dfeeb9eb4b67451136728bae6214249"
+  },
+  "data/devoirs.json": {
+    "mtime": 1788869163.0,
+    "seen": 1789415456.4760172,
+    "ast_hash": "35d0e0b801444bb1f4c2115720f8e4f6",
+    "semantic_hash": "35d0e0b801444bb1f4c2115720f8e4f6"
+  },
+  "manifest.json": {
+    "mtime": 1788869163.0,
+    "seen": 1789415456.476019,
+    "ast_hash": "e1b941647aa4c4613294a9fbde8d6313",
+    "semantic_hash": "e1b941647aa4c4613294a9fbde8d6313"
+  },
+  "sw.js": {
+    "mtime": 1788913836.0,
+    "seen": 1789415456.4760199,
+    "ast_hash": "b7d02bbf54f3e07ff8b7dcda243a7d74",
+    "semantic_hash": "b7d02bbf54f3e07ff8b7dcda243a7d74"
+  },
+  "README.md": {
+    "mtime": 1788887917.0,
+    "seen": 1789415456.476021,
+    "ast_hash": "b397d177376dfafbc18c20979b95e27a",
+    "semantic_hash": "b397d177376dfafbc18c20979b95e27a"
+  },
+  "index.html": {
+    "mtime": 1788889721.0,
+    "seen": 1789415456.4760218,
+    "ast_hash": "088ff7ac705ab8790f4d5957675fa0db",
+    "semantic_hash": "088ff7ac705ab8790f4d5957675fa0db"
+  },
+  "apple-touch-icon.png": {
+    "mtime": 1788869163.0,
+    "seen": 1789415456.4760227,
+    "ast_hash": "8637d2eb3beb730f91755d59ecc05e7a",
+    "semantic_hash": "8637d2eb3beb730f91755d59ecc05e7a"
+  },
+  "favicon-32.png": {
+    "mtime": 1788869163.0,
+    "seen": 1789415456.4760232,
+    "ast_hash": "a24b07637606e809d2ed202d5fc9db85",
+    "semantic_hash": "a24b07637606e809d2ed202d5fc9db85"
+  },
+  "icon-192.png": {
+    "mtime": 1788869163.0,
+    "seen": 1789415456.476024,
+    "ast_hash": "06dd8b0590d18a43d0677f2953309e2f",
+    "semantic_hash": "06dd8b0590d18a43d0677f2953309e2f"
+  },
+  "icon-512.png": {
+    "mtime": 1788869163.0,
+    "seen": 1789415456.4760246,
+    "ast_hash": "5a8cb21f2136b2359788a363f43da8b0",
+    "semantic_hash": "5a8cb21f2136b2359788a363f43da8b0"
+  }
+}

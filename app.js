@@ -253,8 +253,11 @@ function renameCourse(entry, newName) {
   if (!newName || newName === entry.name) { render(); return; }
   if (entry.id) coursesCol.doc(entry.id).update({ name: newName });
   else coursesCol.add({ name: newName, color: entry.color || subjectColor(entry.name) });
+  var key = subjectKey(entry.name);
   state.items.forEach(function (it) {
-    if (it.subject === entry.name) col.doc(it.id).update({ subject: newName, updatedAt: new Date().toISOString(), updatedBy: state.myName });
+    if (it.subject && it.subject !== newName && subjectKey(it.subject) === key) {
+      col.doc(it.id).update({ subject: newName, updatedAt: new Date().toISOString(), updatedBy: state.myName });
+    }
   });
 }
 
@@ -370,7 +373,7 @@ function payloadOf(it) {
     type: it.type || 'devoir',
     subject: it.subject || '',
     dueDate: it.dueDate || '',
-    weight: it.weight || null,
+    weight: it.weight != null && it.weight !== '' ? it.weight : null,
     duration: it.duration || '',
     description: it.description || '',
     assignedTo: it.assignedTo || state.myName,
@@ -641,7 +644,7 @@ function card(it) {
     h('p', { class: 'card-title' }, it.title),
     h('div', { class: 'card-meta' }, [
       h('span', { class: 'meta' }, [icon(type.icon), type.label]),
-      it.weight ? h('span', { class: 'meta' }, [icon('ph-percent'), it.weight + ' %']) : null,
+      it.weight != null ? h('span', { class: 'meta' }, [icon('ph-percent'), it.weight + ' %']) : null,
       it.duration ? h('span', { class: 'meta' }, [icon('ph-clock'), it.duration]) : null,
       h('span', { class: 'meta who' }, [
         h('span', { class: 'avatar' + (isMine(it.assignedTo) ? ' me' : '') }, initials(it.assignedTo)),
@@ -749,8 +752,8 @@ function renderForm() {
         onclick: function () {
           var name = input.value.trim();
           if (!name) return;
-          coursesCol.add({ name: name, owner: d.assignedTo || state.myName }).then(function (ref) {
-            state.courses.push({ id: ref.id, name: name, owner: d.assignedTo });
+          coursesCol.add({ name: name }).then(function (ref) {
+            state.courses.push({ id: ref.id, name: name });
             d.subject = name;
             state.newCourse = false;
             render();
@@ -861,7 +864,7 @@ function renderDetail() {
   var color = subjectColor(it.subject);
 
   var rows = [{ k: 'Assigné à', v: it.assignedTo || '?' }];
-  if (it.weight) rows.push({ k: 'Pondération', v: it.weight + ' %' });
+  if (it.weight != null) rows.push({ k: 'Pondération', v: it.weight + ' %' });
   if (it.duration) rows.push({ k: 'Durée estimée', v: it.duration });
   rows.push({ k: 'Statut', v: (STATUS[it.status] || STATUS.a_faire).label });
 
@@ -1041,7 +1044,7 @@ function renderWeek() {
         var color = subjectColor(it.subject);
         var doneIt = it.status === 'fini';
         var bits = [it.assignedTo];
-        if (it.weight) bits.push(it.weight + ' %');
+        if (it.weight != null) bits.push(it.weight + ' %');
         else if (it.duration) bits.push(it.duration);
         return h('button', {
           class: 'week-card' + (doneIt ? ' fini' : ''), type: 'button',
