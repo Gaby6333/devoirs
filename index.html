@@ -7,7 +7,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="favicon-32.png" sizes="32x32">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="theme-color" content="#0f1424">
+<meta name="theme-color" content="#0b1a1f">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Devoirs">
@@ -34,8 +34,8 @@
       </svg>
       <span>Devoirs à deux</span>
     </div>
-    <h2>C'est qui, toi&nbsp;?</h2>
-    <p>Pour savoir qui a quoi à faire.</p>
+    <h2 id="login-title">C'est qui, toi&nbsp;?</h2>
+    <p id="login-sub">Pour savoir qui a quoi à faire.</p>
     <div class="name-pick-row" id="name-pick-row">
       <button type="button" class="name-pick" data-name="Léonie">Léonie</button>
       <button type="button" class="name-pick" data-name="Gabriel">Gabriel</button>
@@ -43,8 +43,9 @@
     <form id="login-form" class="field" hidden>
       <label for="login-password">Mot de passe</label>
       <input type="password" id="login-password" autocomplete="current-password">
-      <button type="submit" class="btn-solid" style="margin-top:14px">Se connecter</button>
-      <p id="login-error" class="hist" style="color:var(--overdue)"></p>
+      <p id="login-error" class="login-error" role="alert"></p>
+      <button type="submit" class="btn-solid">Se connecter</button>
+      <button type="button" id="login-switch" class="head-link muted"></button>
     </form>
   </div>
 </div>

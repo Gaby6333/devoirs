@@ -51,9 +51,6 @@ var state = {
   loaded: false,
   myName: localStorage.getItem('devoirs-name') || '',
   theme: localStorage.getItem('devoirs-theme') || 'auto',
-  filter: 'tous',
-  query: '',
-  sortBy: 'date',
   showDone: false,
   weekOffset: 0,
   draft: null,
@@ -525,52 +522,20 @@ function renderList() {
     if (it.status === 'fini') { done++; return; }
     if (dueInfo(it.dueDate).diff < 0) late++; else todo++;
   });
-  var d = today();
-  var sub = d.getDate() + ' ' + MONTHS_SHORT[d.getMonth()];
+  var total = late + todo;
 
   scr.appendChild(h('header', { class: 'list-head' }, [
     h('div', {}, [
       h('h1', {}, 'Devoirs'),
-      h('p', { class: 'list-sub' }, [
-        sub + ' · ',
-        late ? h('span', { class: 'is-late' }, late + ' en retard') : null,
-        late ? ' · ' : '',
-        todo + ' à venir'
-      ])
+      h('p', { class: 'list-sub' }, total
+        ? [total + ' à faire', late ? ', dont ' : null, late ? h('span', { class: 'is-late' }, late + ' en retard') : null]
+        : 'Tout est fait'),
+      h('button', { class: 'head-link', type: 'button', onclick: function () { go('week'); } }, 'Voir ma semaine')
     ]),
-    h('div', { class: 'head-actions' }, [
-      h('button', { class: 'bar-icon boxed', type: 'button', 'aria-label': 'Semaine', onclick: function () { go('week'); } }, icon('ph-calendar-blank')),
-      h('button', { class: 'bar-icon boxed', type: 'button', 'aria-label': 'Réglages', onclick: function () { go('settings'); } }, icon('ph-sliders-horizontal'))
-    ])
+    h('button', { class: 'avatar-btn', type: 'button', 'aria-label': 'Mon profil et réglages', onclick: function () { go('settings'); } }, initials(state.myName))
   ]));
 
   if (state.banner) scr.appendChild(h('div', { class: 'banner' }, state.banner));
-
-  var names = ['tous'].concat(KNOWN_NAMES);
-  if (state.items.some(function (it) { return it.assignedTo === 'Nous deux'; })) names.push('Nous deux');
-  var chips = h('div', { class: 'chips' }, names.map(function (name) {
-    return h('button', {
-      class: 'chip' + (state.filter === name ? ' active' : ''),
-      type: 'button',
-      onclick: function () { state.filter = name; render(); }
-    }, name === 'tous' ? 'Tous' : (isMine(name) ? 'Moi' : name));
-  }));
-  scr.appendChild(chips);
-
-  var search = h('input', {
-    class: 'search', type: 'search', placeholder: 'Rechercher…', value: state.query,
-    oninput: function (e) { state.query = e.target.value; renderListBody(); }
-  });
-  var sort = h('select', {
-    class: 'sort',
-    onchange: function (e) { state.sortBy = e.target.value; renderListBody(); }
-  }, [
-    h('option', { value: 'date' }, 'Date'),
-    h('option', { value: 'matiere' }, 'Matière'),
-    h('option', { value: 'personne' }, 'Personne')
-  ]);
-  sort.value = state.sortBy;
-  scr.appendChild(h('div', { class: 'search-row' }, [search, sort]));
 
   scr.appendChild(h('div', { class: 'list', id: 'list-body' }));
   scr.appendChild(h('div', { class: 'fab-fade' }));
@@ -583,21 +548,9 @@ function renderList() {
 }
 
 function visibleItems() {
-  var q = state.query.trim().toLowerCase();
-  var list = state.items.filter(function (it) {
-    if (state.filter !== 'tous' && it.assignedTo !== state.filter) return false;
-    if (q) {
-      var hay = (it.title + ' ' + (it.subject || '') + ' ' + (it.description || '')).toLowerCase();
-      if (hay.indexOf(q) === -1) return false;
-    }
-    return true;
-  });
-  list.sort(function (a, b) {
-    if (state.sortBy === 'matiere') return (a.subject || '').localeCompare(b.subject || '', 'fr') || (a.dueDate || '').localeCompare(b.dueDate || '');
-    if (state.sortBy === 'personne') return (a.assignedTo || '').localeCompare(b.assignedTo || '', 'fr') || (a.dueDate || '').localeCompare(b.dueDate || '');
+  return state.items.slice().sort(function (a, b) {
     return (a.dueDate || '9999').localeCompare(b.dueDate || '9999');
   });
-  return list;
 }
 
 function renderListBody() {
@@ -617,15 +570,14 @@ function renderListBody() {
 
   if (!active.length && !doneList.length) {
     body.appendChild(h('div', { class: 'empty' }, [
-      h('div', { class: 'big' }, icon(state.query ? 'ph-magnifying-glass' : 'ph-notebook')),
-      h('p', { class: 'strong' }, state.query ? 'Aucun résultat pour cette recherche.' : 'Rien ici pour l\'instant.'),
-      state.query ? null : h('p', {}, 'Ajoutez le premier avec le bouton ci-dessous.')
+      h('div', { class: 'big' }, icon('ph-notebook')),
+      h('p', { class: 'strong' }, 'Aucun devoir pour l\'instant.'),
+      h('p', {}, 'Touche « Ajouter » pour noter le premier.')
     ]));
     return;
   }
 
-  if (state.sortBy === 'date') {
-    var buckets = [
+  var buckets = [
       { label: 'En retard', cls: 'is-late', items: [] },
       { label: 'Cette semaine', cls: '', items: [] },
       { label: 'Plus tard', cls: '', items: [] }
@@ -641,9 +593,6 @@ function renderListBody() {
       body.appendChild(h('div', { class: 'group-header ' + b.cls }, b.label));
       b.items.forEach(function (it) { body.appendChild(card(it)); });
     });
-  } else {
-    active.forEach(function (it) { body.appendChild(card(it)); });
-  }
 
   if (doneList.length) {
     if (state.showDone) {
@@ -838,6 +787,23 @@ function renderForm() {
       Object.keys(STATUS).map(function (k) { return h('option', { value: k }, STATUS[k].label); }));
     st.value = d.status || 'a_faire';
     body.appendChild(h('div', { class: 'field' }, [h('label', { for: 'f-status' }, 'Statut'), st]));
+
+    var delId = state.editingId;
+    body.appendChild(h('button', {
+      class: 'btn-danger', type: 'button',
+      onclick: function () {
+        var it = state.items.filter(function (x) { return x.id === delId; })[0];
+        if (!it) return;
+        var copy = payloadOf(it);
+        deleteDevoir(delId);
+        state.draft = null;
+        state.editingId = null;
+        history.replaceState({ view: 'list' }, '', urlFor('list'));
+        state.view = 'list';
+        render();
+        toast('Devoir supprimé.', function () { addDevoir(copy); });
+      }
+    }, [icon('ph-trash'), 'Supprimer ce devoir']));
   }
 
   scr.appendChild(body);
@@ -872,7 +838,6 @@ function saveForm() {
   } else {
     addDevoir(payload);
     state.draft = null;
-    state.filter = 'tous';
     history.replaceState({ view: 'list' }, '', urlFor('list'));
     state.view = 'list';
     render();
@@ -909,19 +874,7 @@ function renderDetail() {
   scr.appendChild(h('header', { class: 'topbar' }, [
     h('button', { class: 'bar-icon', type: 'button', 'aria-label': 'Retour', onclick: back }, icon('ph-arrow-left')),
     h('span', { class: 'bar-spacer' }),
-    h('div', { class: 'bar-tools' }, [
-      h('button', { class: 'bar-icon', type: 'button', 'aria-label': 'Modifier', onclick: function () { openForm(it); } }, icon('ph-pencil-simple')),
-      h('button', { class: 'bar-icon', type: 'button', 'aria-label': 'Ajouter au calendrier', onclick: function () { downloadIcs(it); } }, icon('ph-calendar-plus')),
-      h('button', {
-        class: 'bar-icon danger', type: 'button', 'aria-label': 'Supprimer',
-        onclick: function () {
-          var copy = payloadOf(it);
-          deleteDevoir(it.id);
-          back();
-          toast('Devoir supprimé.', function () { addDevoir(copy); });
-        }
-      }, icon('ph-trash'))
-    ])
+    h('button', { class: 'bar-text', type: 'button', onclick: function () { openForm(it); } }, 'Modifier')
   ]));
 
   var body = h('div', { class: 'detail' }, [
@@ -950,30 +903,14 @@ function renderDetail() {
   }
   if (hist) body.appendChild(h('p', { class: 'hist' }, hist));
 
-  body.appendChild(h('div', { class: 'detail-actions' }, [
-    h('button', {
-      class: 'btn-solid', type: 'button',
-      onclick: function () { setStatus(it, done ? 'a_faire' : 'fini'); if (!done) back(); }
-    }, [icon(done ? 'ph-arrow-counter-clockwise' : 'ph-check'), done ? 'Rouvrir' : 'Marquer fini']),
-    h('button', {
-      class: 'btn-ghost', type: 'button',
-      onclick: function () {
-        var next = parseDate(it.dueDate) || today();
-        next.setDate(next.getDate() + 7);
-        var copy = payloadOf(it);
-        copy.dueDate = iso(next);
-        copy.status = 'a_faire';
-        addDevoir(copy);
-        toast('Copié à la semaine suivante.');
-      }
-    }, [icon('ph-copy'), 'Répéter dans 7 j'])
-  ]));
+  body.appendChild(h('button', {
+    class: done ? 'btn-ghost' : 'btn-solid', type: 'button',
+    onclick: function () { setStatus(it, done ? 'a_faire' : 'fini'); if (!done) back(); }
+  }, [icon(done ? 'ph-arrow-counter-clockwise' : 'ph-check'), done ? 'Remettre à faire' : 'Marquer comme fini']));
 
   scr.appendChild(body);
   return scr;
 }
-
-function escapeIcs(s) { return String(s || '').replace(/([,;\\])/g, '\\$1').replace(/\n/g, '\\n'); }
 
 function exportData() {
   var data = {
@@ -983,27 +920,6 @@ function exportData() {
   };
   var blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
   var a = h('a', { href: URL.createObjectURL(blob), download: 'devoirs-' + iso(today()) + '.json' });
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-}
-
-function downloadIcs(it) {
-  if (!it.dueDate) { showBanner('Ce devoir n\'a pas de date.'); return; }
-  var type = TYPES[it.type] ? TYPES[it.type].label : 'Devoir';
-  var dateStr = it.dueDate.replace(/-/g, '');
-  var lines = [
-    'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//devoirs-a-deux//FR',
-    'BEGIN:VEVENT',
-    'UID:' + it.id + '@devoirs',
-    'DTSTAMP:' + new Date().toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z',
-    'DTSTART;VALUE=DATE:' + dateStr,
-    'SUMMARY:' + escapeIcs(type + ' : ' + it.title + (it.subject ? ' (' + it.subject + ')' : '')),
-    'DESCRIPTION:' + escapeIcs(it.description || ''),
-    'END:VEVENT', 'END:VCALENDAR'
-  ];
-  var blob = new Blob([lines.join('\r\n')], { type: 'text/calendar' });
-  var a = h('a', { href: URL.createObjectURL(blob), download: 'devoir.ics' });
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
@@ -1031,13 +947,22 @@ function renderWeek() {
 
   var scr = h('div', { class: 'screen' });
   scr.appendChild(h('header', { class: 'topbar' }, [
-    h('div', { class: 'bar-tools' }, [
-      h('button', { class: 'bar-icon', type: 'button', 'aria-label': 'Retour', onclick: back }, icon('ph-arrow-left')),
-      h('button', { class: 'bar-icon', type: 'button', 'aria-label': 'Semaine précédente', onclick: function () { state.weekOffset--; render(); } }, icon('ph-caret-left'))
-    ]),
+    h('button', { class: 'bar-icon', type: 'button', 'aria-label': 'Retour', onclick: back }, icon('ph-arrow-left')),
     h('div', { class: 'bar-title' }, 'Semaine du ' + dates[0].getDate() + ' ' + MONTHS_SHORT[dates[0].getMonth()]),
-    h('button', { class: 'bar-icon', type: 'button', 'aria-label': 'Semaine suivante', onclick: function () { state.weekOffset++; render(); } }, icon('ph-caret-right'))
+    h('span', { class: 'bar-icon', 'aria-hidden': 'true' })
   ]));
+
+  // Glisser à gauche / à droite pour changer de semaine.
+  var x0 = null;
+  scr.addEventListener('touchstart', function (e) { x0 = e.touches[0].clientX; }, { passive: true });
+  scr.addEventListener('touchend', function (e) {
+    if (x0 == null) return;
+    var dx = e.changedTouches[0].clientX - x0;
+    x0 = null;
+    if (Math.abs(dx) < 60) return;
+    state.weekOffset += dx < 0 ? 1 : -1;
+    render();
+  });
 
   scr.appendChild(h('div', { class: 'week-strip' }, dates.map(function (dt, i) {
     var key = iso(dt);
@@ -1046,10 +971,7 @@ function renderWeek() {
     var late = pending.some(function (x) { return dueInfo(x.dueDate).diff < 0; });
     var isToday = key === iso(today());
     var dotCls = !day.length ? 'none' : (late ? 'late' : (pending.length ? 'pending' : 'done'));
-    return h('button', {
-      class: 'day' + (isToday ? ' today' : '') + (i > 4 ? ' weekend' : ''), type: 'button',
-      onclick: function () { if (day.length) go('detail', { id: day[0].id }); }
-    }, [
+    return h('div', { class: 'day' + (isToday ? ' today' : '') + (i > 4 ? ' weekend' : '') }, [
       h('span', { class: 'dow' }, DOW[i]),
       h('span', { class: 'num' }, dt.getDate()),
       h('span', { class: 'dot ' + dotCls, style: dotCls === 'pending' ? 'background:' + subjectColor(pending[0].subject) : null })
@@ -1081,7 +1003,6 @@ function renderWeek() {
         else if (it.duration) bits.push(it.duration);
         return h('button', {
           class: 'week-card' + (doneIt ? ' fini' : ''), type: 'button',
-          style: 'border-left-color:' + (doneIt ? 'var(--done)' : color),
           onclick: function () { go('detail', { id: it.id }); }
         }, [
           h('div', { class: 'wc-subject', style: 'color:' + color }, it.subject || 'Sans matière'),
@@ -1245,14 +1166,32 @@ function render() {
 /* ── démarrage ──────────────────────────────────────────── */
 
 var pendingName = null;
+
+// Écran de connexion : si on connaît déjà la personne de ce téléphone,
+// on va droit au mot de passe ; sinon on demande qui c'est.
+function showLogin(name) {
+  pendingName = KNOWN_NAMES.indexOf(name) === -1 ? null : name;
+  var other = pendingName === 'Léonie' ? 'Gabriel' : 'Léonie';
+  document.getElementById('name-pick-row').hidden = !!pendingName;
+  document.getElementById('login-form').hidden = !pendingName;
+  document.getElementById('login-password').value = '';
+  document.getElementById('login-error').textContent = '';
+  document.getElementById('login-title').textContent = pendingName ? 'Salut ' + pendingName : 'C\'est qui, toi ?';
+  document.getElementById('login-sub').textContent = pendingName ? 'Entre ton mot de passe pour voir tes devoirs.' : 'Pour savoir qui a quoi à faire.';
+  document.getElementById('login-switch').textContent = 'Je suis ' + other;
+}
+
 Array.prototype.forEach.call(document.querySelectorAll('.name-pick'), function (btn) {
   btn.onclick = function () {
-    pendingName = btn.getAttribute('data-name');
-    document.getElementById('name-pick-row').hidden = true;
-    document.getElementById('login-form').hidden = false;
+    showLogin(btn.getAttribute('data-name'));
     document.getElementById('login-password').focus();
   };
 });
+document.getElementById('login-switch').onclick = function () {
+  showLogin(pendingName === 'Léonie' ? 'Gabriel' : 'Léonie');
+  document.getElementById('login-password').focus();
+};
+showLogin(localStorage.getItem('devoirs-name'));
 document.getElementById('login-form').onsubmit = function (e) {
   e.preventDefault();
   var pwd = document.getElementById('login-password').value;
@@ -1311,9 +1250,7 @@ firebase.auth().onAuthStateChanged(function (user) {
   var name = user && user.email ? NAME_BY_EMAIL[user.email.toLowerCase()] : null;
   if (user && !name) { firebase.auth().signOut(); return; }
 
-  document.getElementById('login-form').hidden = true;
-  document.getElementById('name-pick-row').hidden = false;
-  document.getElementById('login-password').value = '';
+  showLogin(name || localStorage.getItem('devoirs-name'));
 
   if (name) {
     state.myName = name;
