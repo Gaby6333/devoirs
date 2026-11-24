@@ -1081,7 +1081,7 @@ function renderWeek() {
         else if (it.duration) bits.push(it.duration);
         return h('button', {
           class: 'week-card' + (doneIt ? ' fini' : ''), type: 'button',
-          style: 'border-left-color:' + (doneIt ? '#8fbfae' : color),
+          style: 'border-left-color:' + (doneIt ? 'var(--done)' : color),
           onclick: function () { go('detail', { id: it.id }); }
         }, [
           h('div', { class: 'wc-subject', style: 'color:' + color }, it.subject || 'Sans matière'),
